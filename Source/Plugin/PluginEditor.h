@@ -15,9 +15,14 @@ public:
 
 private:
     void timerCallback() override;
+    void applyTheme(int themeIndex);
 
     AnalogMasterProcessor& processor_;
     analog_master::ui::AnalogLookAndFeel lookAndFeel_;
+
+    // Header Look / Theme Selector
+    juce::ComboBox themeBox_;
+    juce::Label themeLabel_{ {}, "LOOK" };
 
     // UI Controls
     // 1. Low Cut
@@ -52,6 +57,8 @@ private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+
+    std::unique_ptr<ComboBoxAttachment> themeAttach_;
 
     std::unique_ptr<SliderAttachment> lowCutFreqAttach_;
     std::unique_ptr<ComboBoxAttachment> lowCutSlopeAttach_;

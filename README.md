@@ -13,10 +13,25 @@
 
 ---
 
-## Screenshots
+## Screenshots & Faceplate Looks
 
-### Main Interface in DAW
-![Analog Master Strip UI](assets/gui_master.png)
+The interface includes a real-time **LOOK** selector in the top header, allowing instant switching between 4 authentic vintage studio aesthetics:
+
+### 1. Classic Charcoal & Warm Gold (Default)
+*Brushed dark charcoal faceplate, spun brass knobs, warm amber jewel lamps, and vintage parchment VU meters.*
+![Classic Charcoal UI](assets/gui_master.png)
+
+### 2. Studio Silverface Edition
+*1970s brushed silver aluminum faceplate, dark navy silkscreen, precision fluted silver knobs, electric sapphire-blue jewel lamp, and clean white studio VU meters.*
+![Silverface UI](assets/gui_silverface.jpg)
+
+### 3. British Console Heritage Edition
+*Deep British racing green enamel faceplate, antique cream & gold typography, solid brass knurled knobs, glowing ruby-red jewel lamp, and ivory VU meters.*
+![British Green UI](assets/gui_british_green.jpg)
+
+### 4. Midnight Slate Mastering Edition
+*Anodized midnight navy brushed aluminum, laser cyan silkscreen, precision dark gunmetal slate dials, electric cyan pilot lamp, and fluorescent ice-blue backlit VU meters.*
+![Midnight Slate UI](assets/gui_midnight_slate.jpg)
 
 ### Analog Hardware Detailing
 ![Analog Hardware Detail](assets/screenshot_hardware_detail.jpg)
@@ -54,18 +69,26 @@
 
 ### 4. Master Output & Analog Metering
 - **Master Trim:** Continuous ±18 dB analog output gain.
-- **Twin Vintage VU Meters:** Ballistic Left/Right peak needle meters with backlit warm cream faceplates and overload indicator zones.
+- **Twin Vintage VU Meters:** Ballistic Left/Right peak needle meters with backlit faceplates and overload indicator zones, dynamically colored per theme.
 - **Global Power / Master Bypass Switch.**
+
+### 5. Multi-Look Vintage Faceplate Switcher (4 Selectable Aesthetics)
+- Switch on-the-fly via the header **`LOOK`** dropdown or automate in your DAW:
+  - **Classic Charcoal:** Deep brushed charcoal faceplate, spun brass knobs, amber jewel lamps, warm parchment VU meters.
+  - **Silverface Edition:** 1970s studio brushed silver aluminum, dark navy typography, silver fluted knobs, sapphire blue jewel lamp, clean studio white VU meters.
+  - **British Console Heritage:** Vintage British racing green enamel faceplate, antique cream & gold typography, solid brass knurled knobs, ruby red jewel lamp, antique ivory VU meters.
+  - **Midnight Slate Mastering:** Precision mastering unit, deep midnight navy brushed aluminum, laser cyan silkscreen, dark gunmetal dials, ice-blue backlit VU meters.
+- Persisted automatically in DAW project sessions and user presets.
 
 ---
 
 ## Classic Analog Aesthetic
 
 Inspired by iconic analog mastering gear:
-- Brushed charcoal-black anodized aluminum faceplate with subtle horizontal hairline texture.
-- Machined brass and dark knurled rotary knobs with pointer notches and radial index markings.
-- Glowing warm amber jewel LED indicators (`#ffaa22`) with illuminated halo effects.
-- 4 heavy-duty corner rack screws and silk-screened gold typography.
+- Brushed aluminum and vintage enamel faceplates with subtle horizontal hairline texture.
+- Machined brass, silver, and gunmetal knurled rotary knobs with pointer notches and radial index markings.
+- Glowing jewel LED indicators with illuminated halo effects (Amber, Sapphire Blue, Ruby Red, and Electric Cyan).
+- 4 heavy-duty corner rack screws and silk-screened typography.
 
 ---
 
@@ -79,7 +102,10 @@ analog-master-vst/
 ├── assets/
 │   ├── banner.jpg                # Photorealistic 16:9 hero banner
 │   ├── icon.jpg                  # High-resolution plugin icon
-│   ├── gui_master.png            # Full UI screenshot
+│   ├── gui_master.png            # Classic Charcoal UI screenshot
+│   ├── gui_silverface.jpg        # Studio Silverface Edition screenshot
+│   ├── gui_british_green.jpg     # British Console Heritage screenshot
+│   ├── gui_midnight_slate.jpg    # Midnight Slate Mastering screenshot
 │   └── screenshot_hardware_detail.jpg # Hardware controls detail shot
 ├── Source/
 │   ├── Core/                     # Pure C++20 DSP engine (zero GUI dependencies)

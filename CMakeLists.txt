@@ -30,6 +30,7 @@ if(AMS_BUILD_PLUGIN)
 
     juce_add_plugin(AnalogMasterStrip
         COMPANY_NAME "Alan Marcero"
+        BUNDLE_ID "com.alanmarcero.analogmasterstrip"
         PRODUCT_NAME "Analog Master Strip"
         PLUGIN_MANUFACTURER_CODE Amrc
         PLUGIN_CODE Amst

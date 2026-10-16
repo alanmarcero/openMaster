@@ -101,6 +101,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         false
     ));
 
+    // 5. Visual Faceplate Theme (4 Looks)
+    const juce::StringArray themeChoices {
+        "Classic Charcoal",
+        "Silverface",
+        "British Console",
+        "Midnight Slate"
+    };
+
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{ kTheme, 1 },
+        "Faceplate Theme",
+        themeChoices,
+        0 // Default to Classic Charcoal
+    ));
+
     return layout;
 }
 

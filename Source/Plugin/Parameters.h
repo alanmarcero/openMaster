@@ -21,6 +21,8 @@ inline constexpr const char* kHighCutBypass = "high_cut_bypass";
 inline constexpr const char* kMasterGain = "master_gain";
 inline constexpr const char* kMasterBypass = "master_bypass";
 
+inline constexpr const char* kTheme = "theme";
+
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
 } // namespace analog_master::params

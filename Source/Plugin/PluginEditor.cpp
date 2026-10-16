@@ -12,7 +12,7 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
 
         l.setText(text, juce::dontSendNotification);
         l.setJustificationType(juce::Justification::centred);
-        l.setColour(juce::Label::textColourId, juce::Colour(0xffdfc488));
+        l.setColour(juce::Label::textColourId, lookAndFeel_.getPalette().labelText);
         l.setFont(juce::FontOptions(11.0f, juce::Font::bold));
         addAndMakeVisible(l);
     };
@@ -24,12 +24,32 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
 
         l.setText(text, juce::dontSendNotification);
         l.setJustificationType(juce::Justification::centred);
-        l.setColour(juce::Label::textColourId, juce::Colour(0xffdfc488));
+        l.setColour(juce::Label::textColourId, lookAndFeel_.getPalette().labelText);
         l.setFont(juce::FontOptions(11.0f, juce::Font::bold));
         addAndMakeVisible(l);
     };
 
     const juce::StringArray slopeLabels { "12 dB", "24 dB", "48 dB", "64 dB HARD", "96 dB BRICK" };
+
+    // 0. Look / Theme Switcher in Header
+    const juce::StringArray themeChoices {
+        "Classic Charcoal",
+        "Silverface",
+        "British Console",
+        "Midnight Slate"
+    };
+    themeBox_.addItemList(themeChoices, 1);
+    themeBox_.setJustificationType(juce::Justification::centred);
+    themeBox_.onChange = [this]() {
+        applyTheme(themeBox_.getSelectedItemIndex());
+    };
+    addAndMakeVisible(themeBox_);
+
+    themeLabel_.setText("LOOK:", juce::dontSendNotification);
+    themeLabel_.setJustificationType(juce::Justification::centredRight);
+    themeLabel_.setColour(juce::Label::textColourId, lookAndFeel_.getPalette().labelText);
+    themeLabel_.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    addAndMakeVisible(themeLabel_);
 
     // 1. Low Cut
     setupSlider(lowCutFreqSlider_, lowCutFreqLabel_, "FREQUENCY", " Hz");
@@ -54,6 +74,8 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
 
     // APVTS Attachments
     using namespace analog_master::params;
+    themeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kTheme, themeBox_);
+
     lowCutFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kLowCutFreq, lowCutFreqSlider_);
     lowCutSlopeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kLowCutSlope, lowCutSlopeBox_);
     lowCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kLowCutBypass, lowCutBypassButton_);
@@ -70,6 +92,8 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
     masterGainAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kMasterGain, masterGainSlider_);
     masterBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterBypass, masterBypassButton_);
 
+    applyTheme(themeBox_.getSelectedItemIndex());
+
     setSize(920, 380);
     startTimerHz(30);
 }
@@ -77,6 +101,27 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
 AnalogMasterEditor::~AnalogMasterEditor() {
     stopTimer();
     setLookAndFeel(nullptr);
+}
+
+void AnalogMasterEditor::applyTheme(int themeIndex) {
+    if (themeIndex < 0 || themeIndex > 3) {
+        themeIndex = 0;
+    }
+    auto theme = static_cast<analog_master::ui::Theme>(themeIndex);
+    lookAndFeel_.setTheme(theme);
+    meter_.setThemePalette(lookAndFeel_.getPalette());
+
+    const auto& pal = lookAndFeel_.getPalette();
+    lowCutFreqLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    lowCutSlopeLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    stereoWidthLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    stereoFreqLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    highCutFreqLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    highCutSlopeLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    masterGainLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    themeLabel_.setColour(juce::Label::textColourId, pal.labelText);
+
+    repaint();
 }
 
 void AnalogMasterEditor::timerCallback() {
@@ -87,47 +132,49 @@ void AnalogMasterEditor::timerCallback() {
 void AnalogMasterEditor::paint(juce::Graphics& g) {
     const auto width = static_cast<float>(getWidth());
     const auto height = static_cast<float>(getHeight());
+    const auto& pal = lookAndFeel_.getPalette();
 
-    // 1. Brushed Dark Anodized Aluminum Background
-    juce::ColourGradient panelGrad(juce::Colour(0xff22252a), 0.0f, 0.0f,
-                                  juce::Colour(0xff141618), 0.0f, height, false);
-    panelGrad.addColour(0.3, juce::Colour(0xff2a2e34));
-    panelGrad.addColour(0.7, juce::Colour(0xff1d2024));
+    // 1. Brushed Aluminum / Enamel Faceplate Background
+    juce::ColourGradient panelGrad(pal.panelGradTop, 0.0f, 0.0f,
+                                  pal.panelGradBottom, 0.0f, height, false);
+    panelGrad.addColour(0.3, pal.panelGradMid1);
+    panelGrad.addColour(0.7, pal.panelGradMid2);
     g.setGradientFill(panelGrad);
     g.fillRect(0.0f, 0.0f, width, height);
 
     // Subtle brushed horizontal stripes
-    g.setColour(juce::Colour(0x06ffffff));
+    g.setColour(pal.panelStripe);
     for (int y = 0; y < getHeight(); y += 2) {
         g.drawHorizontalLine(y, 0.0f, width);
     }
 
     // Outer rack border and chamfer
-    g.setColour(juce::Colour(0xff3f3b33));
+    g.setColour(pal.panelBorder);
     g.drawRect(0.0f, 0.0f, width, height, 2.0f);
-    g.setColour(juce::Colour(0xff111214));
+    g.setColour(pal.panelInnerBorder);
     g.drawRect(2.0f, 2.0f, width - 4.0f, height - 4.0f, 1.0f);
 
     // 2. Corner Rack Mount Screws
-    analog_master::ui::AnalogLookAndFeel::drawRackScrew(g, 18.0f, 18.0f, 8.0f);
-    analog_master::ui::AnalogLookAndFeel::drawRackScrew(g, width - 18.0f, 18.0f, 8.0f);
-    analog_master::ui::AnalogLookAndFeel::drawRackScrew(g, 18.0f, height - 18.0f, 8.0f);
-    analog_master::ui::AnalogLookAndFeel::drawRackScrew(g, width - 18.0f, height - 18.0f, 8.0f);
+    lookAndFeel_.drawRackScrew(g, 18.0f, 18.0f, 8.0f);
+    lookAndFeel_.drawRackScrew(g, width - 18.0f, 18.0f, 8.0f);
+    lookAndFeel_.drawRackScrew(g, 18.0f, height - 18.0f, 8.0f);
+    lookAndFeel_.drawRackScrew(g, width - 18.0f, height - 18.0f, 8.0f);
 
     // 3. Top Header Silk-Screen
-    g.setColour(juce::Colour(0xffd4b475));
+    g.setColour(pal.headerBrand);
     g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
-    g.drawText("ALAN MARCERO", 40, 14, 180, 16, juce::Justification::left);
+    g.drawText("ALAN MARCERO", 40, 14, 160, 18, juce::Justification::centredLeft);
 
     g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    g.setColour(pal.headerTitle);
     g.drawText("ANALOG MASTER STRIP", static_cast<int>(width * 0.5f - 150), 12, 300, 16, juce::Justification::centred);
 
     g.setFont(juce::FontOptions(10.0f, juce::Font::plain));
-    g.setColour(juce::Colour(0xffa8977a));
+    g.setColour(pal.headerSub);
     g.drawText("PRECISION SUB-BASS & AIR CONTOURING PROCESSOR", static_cast<int>(width * 0.5f - 200), 28, 400, 14, juce::Justification::centred);
 
     // Horizontal divider under header
-    g.setColour(juce::Colour(0x55dfc488));
+    g.setColour(pal.headerDivider);
     g.drawLine(36.0f, 48.0f, width - 36.0f, 48.0f, 1.0f);
 
     // 4. Uniform Section Frames
@@ -150,19 +197,19 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
         juce::Rectangle<float> secRect(sx, sectionY, sectionW, sectionH);
 
         // Section background well
-        g.setColour(juce::Colour(0x33000000));
+        g.setColour(pal.sectionWellBg);
         g.fillRoundedRectangle(secRect, 5.0f);
 
         // Section border
-        g.setColour(juce::Colour(0xff443f36));
+        g.setColour(pal.sectionBorder);
         g.drawRoundedRectangle(secRect, 5.0f, 1.0f);
 
         // Title header plate
         juce::Rectangle<float> headerPlate(sx + 8.0f, sectionY + 8.0f, sectionW - 16.0f, 22.0f);
-        g.setColour(juce::Colour(0x55111315));
+        g.setColour(pal.sectionHeaderPlate);
         g.fillRoundedRectangle(headerPlate, 3.0f);
 
-        g.setColour(juce::Colour(0xffdfc488));
+        g.setColour(pal.sectionTitleText);
         g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
         g.drawText(sectionTitles[i], headerPlate.toNearestInt(), juce::Justification::centred);
     }
@@ -171,6 +218,11 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
 void AnalogMasterEditor::resized() {
     const float width = static_cast<float>(getWidth());
     const float height = static_cast<float>(getHeight());
+
+    // Header Look Selector
+    themeLabel_.setBounds(static_cast<int>(width - 245.0f), 13, 50, 22);
+    themeBox_.setBounds(static_cast<int>(width - 190.0f), 13, 150, 22);
+
     const float sectionY = 58.0f;
     const float sectionH = height - sectionY - 26.0f;
     const float sectionMargin = 38.0f;
@@ -186,7 +238,7 @@ void AnalogMasterEditor::resized() {
     // SECTION 0: LOW CUT
     {
         auto r = getSectionRect(0).reduced(12.0f);
-        r.removeFromTop(24.0f); // Space for section title
+        r.removeFromTop(24.0f);
 
         lowCutFreqLabel_.setBounds(r.removeFromTop(18.0f).toNearestInt());
         lowCutFreqSlider_.setBounds(r.removeFromTop(95.0f).toNearestInt());
