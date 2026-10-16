@@ -16,7 +16,7 @@
 ## Screenshots
 
 ### Main Interface in DAW
-![Analog Master Strip UI](assets/gui_overview.png)
+![Analog Master Strip UI](assets/gui.png)
 
 ### Analog Hardware Detailing
 ![Analog Hardware Detail](assets/screenshot_hardware_detail.jpg)
@@ -79,7 +79,7 @@ analog-master-vst/
 ├── assets/
 │   ├── banner.jpg                # Photorealistic 16:9 hero banner
 │   ├── icon.jpg                  # High-resolution plugin icon
-│   ├── gui_overview.png          # Full UI screenshot
+│   ├── gui.png                   # Full UI screenshot
 │   └── screenshot_hardware_detail.jpg # Hardware controls detail shot
 ├── Source/
 │   ├── Core/                     # Pure C++20 DSP engine (zero GUI dependencies)
