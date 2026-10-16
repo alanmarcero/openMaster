@@ -83,7 +83,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{ kHighCutFreq, 1 },
         "High Cut Frequency",
-        juce::NormalisableRange<float>(8000.0f, 24000.0f, 10.0f, 0.5f),
+        juce::NormalisableRange<float>(8000.0f, 24000.0f, 10.0f, 1.0f),
         20000.0f,
         juce::AudioParameterFloatAttributes()
             .withLabel("Hz")

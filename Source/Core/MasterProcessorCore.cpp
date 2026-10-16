@@ -115,15 +115,19 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
         // Transparent bypass: track dry levels
         float sumAbsL = 0.0f;
         float sumAbsR = 0.0f;
+        float blockPeakL = 0.0f;
+        float blockPeakR = 0.0f;
         for (int i = 0; i < numSamples; ++i) {
             float absL = std::abs(leftChannel[i]);
             sumAbsL += absL;
+            blockPeakL = std::max(blockPeakL, absL);
             if (absL > currentPeakL) {
                 currentPeakL = absL;
             }
             if (rightChannel != nullptr) {
                 float absR = std::abs(rightChannel[i]);
                 sumAbsR += absR;
+                blockPeakR = std::max(blockPeakR, absR);
                 if (absR > currentPeakR) {
                     currentPeakR = absR;
                 }
@@ -142,8 +146,8 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
         meterPeakR_.store(currentPeakR, std::memory_order_relaxed);
         meterVuL_.store(currentVuL, std::memory_order_relaxed);
         meterVuR_.store(currentVuR, std::memory_order_relaxed);
-        meterClipL_.store(currentPeakL >= 0.999f, std::memory_order_relaxed);
-        meterClipR_.store(currentPeakR >= 0.999f, std::memory_order_relaxed);
+        meterClipL_.store(blockPeakL >= 0.999f, std::memory_order_relaxed);
+        meterClipR_.store(blockPeakR >= 0.999f, std::memory_order_relaxed);
         return;
     }
 
@@ -166,6 +170,8 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
 
     float sumAbsL = 0.0f;
     float sumAbsR = 0.0f;
+    float blockPeakL = 0.0f;
+    float blockPeakR = 0.0f;
 
     for (int i = 0; i < numSamples; ++i) {
         currentGainLinear_ += gainStep;
@@ -173,6 +179,7 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
         leftChannel[i] *= currentGainLinear_;
         float absL = std::abs(leftChannel[i]);
         sumAbsL += absL;
+        blockPeakL = std::max(blockPeakL, absL);
         if (absL > currentPeakL) {
             currentPeakL = absL;
         }
@@ -181,6 +188,7 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
             rightChannel[i] *= currentGainLinear_;
             float absR = std::abs(rightChannel[i]);
             sumAbsR += absR;
+            blockPeakR = std::max(blockPeakR, absR);
             if (absR > currentPeakR) {
                 currentPeakR = absR;
             }
@@ -202,8 +210,8 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
     meterPeakR_.store(currentPeakR, std::memory_order_relaxed);
     meterVuL_.store(currentVuL, std::memory_order_relaxed);
     meterVuR_.store(currentVuR, std::memory_order_relaxed);
-    meterClipL_.store(currentPeakL >= 0.999f, std::memory_order_relaxed);
-    meterClipR_.store(currentPeakR >= 0.999f, std::memory_order_relaxed);
+    meterClipL_.store(blockPeakL >= 0.999f, std::memory_order_relaxed);
+    meterClipR_.store(blockPeakR >= 0.999f, std::memory_order_relaxed);
 }
 
 } // namespace analog_master::core

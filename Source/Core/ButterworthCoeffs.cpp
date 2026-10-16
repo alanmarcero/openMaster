@@ -36,7 +36,7 @@ FilterDesign designButterworthLowPass(
     }
 
     const int safeOrder = std::clamp((order / 2) * 2, 2, 16);
-    const double maxCutoff = sampleRate * 0.49;
+    const double maxCutoff = sampleRate * 0.4995;
     const double safeCutoff = std::clamp(cutoffHz, 10.0, maxCutoff);
 
     const double K = std::tan(std::numbers::pi * safeCutoff / sampleRate);

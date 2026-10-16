@@ -266,3 +266,42 @@ TEST_CASE("MasterProcessorCore computes steady IEC VU levels", "[master]") {
     REQUIRE_THAT(levels.vuR, WithinAbs(1.0f, 0.05f));
 }
 
+TEST_CASE("MasterProcessorCore High Cut remains spike-free during abrupt 16-pole cutoff modulation", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setStereoFieldBypassed(true);
+    processor.setHighCutSlope(FilterSlope::Slope96dB); // 16-pole brickwall (max Q = 5.10)
+    processor.setHighCutFrequency(8000.0);
+
+    const int numSamples = 1024;
+    std::vector<float> left(numSamples);
+    std::vector<float> right(numSamples);
+
+    // Pump 1 kHz sine wave with amplitude 0.5 at 8 kHz cutoff
+    for (int i = 0; i < numSamples; ++i) {
+        float s = 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 1000.0 * i / fs));
+        left[i] = s;
+        right[i] = s;
+    }
+    processor.processBlock(left.data(), right.data(), numSamples);
+
+    // Abruptly jump cutoff from 8 kHz to 24 kHz while states are active
+    processor.setHighCutFrequency(24000.0);
+    for (int i = 0; i < numSamples; ++i) {
+        float s = 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 1000.0 * (i + numSamples) / fs));
+        left[i] = s;
+        right[i] = s;
+    }
+    processor.processBlock(left.data(), right.data(), numSamples);
+
+    float maxPeak = 0.0f;
+    for (int i = 0; i < numSamples; ++i) {
+        maxPeak = std::max(maxPeak, std::abs(left[i]));
+    }
+
+    // TPT SVF must prevent the >10x (+20 dB) transient explosion that occurs in Direct Form II biquads
+    REQUIRE(maxPeak < 0.65f);
+}
+

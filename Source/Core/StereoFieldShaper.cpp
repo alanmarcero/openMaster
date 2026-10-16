@@ -1,5 +1,7 @@
 #include "StereoFieldShaper.h"
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 namespace analog_master::core {
 
@@ -7,8 +9,10 @@ void StereoFieldShaper::prepare(double sampleRate) noexcept {
     if (sampleRate <= 0.0) {
         return;
     }
+    sampleRate_ = sampleRate;
     crossoverL_.prepare(sampleRate);
     crossoverR_.prepare(sampleRate);
+    updateDecorrelator();
     currentBypassGain_ = bypassed_ ? 0.0f : 1.0f;
     currentSoloGain_ = soloLow_ ? 1.0f : 0.0f;
     reset();
@@ -17,7 +21,33 @@ void StereoFieldShaper::prepare(double sampleRate) noexcept {
 void StereoFieldShaper::reset() noexcept {
     crossoverL_.reset();
     crossoverR_.reset();
+    for (auto& ap : decorrelator_) {
+        ap.reset();
+    }
     currentWidth_ = targetWidth_;
+}
+
+void StereoFieldShaper::updateDecorrelator() noexcept {
+    // 4-stage cascaded 2nd-order allpass phase-dispersion network across the sub/low-bass spectrum.
+    // Synthesizes a 100% mono-compatible orthogonal side signal from the mid channel when expanding (> 100%),
+    // so even dead-center mono kick/bass instruments bloom into a wide stereo field above 100% width.
+    constexpr double kPolesHz[4] = { 38.0, 76.0, 152.0, 304.0 };
+    constexpr double kQ = 0.7071067811865475;
+
+    for (size_t i = 0; i < 4; ++i) {
+        const double safeFc = std::clamp(kPolesHz[i], 10.0, sampleRate_ * 0.49);
+        const double K = std::tan(std::numbers::pi * safeFc / sampleRate_);
+        const double K2 = K * K;
+        const double norm = 1.0 / (1.0 + (K / kQ) + K2);
+
+        const double b0 = (1.0 - (K / kQ) + K2) * norm;
+        const double b1 = 2.0 * (K2 - 1.0) * norm;
+        const double b2 = 1.0;
+        const double a1 = b1;
+        const double a2 = b0;
+
+        decorrelator_[i].setCoefficients({ b0, b1, b2, a1, a2 });
+    }
 }
 
 void StereoFieldShaper::setCrossoverFrequency(double freqHz) noexcept {
@@ -55,7 +85,14 @@ void StereoFieldShaper::processSample(float inL, float inR, float& outL, float& 
     const float midLow = 0.5f * (splitL.low + splitR.low);
     const float sideLow = 0.5f * (splitL.low - splitR.low);
 
-    const float shapedSideLow = sideLow * targetWidth_;
+    // Pass mid through allpass dispersion network to keep state warm and synthesize stereo expansion above 1.0
+    float decorrMid = midLow;
+    for (auto& ap : decorrelator_) {
+        decorrMid = ap.process(decorrMid);
+    }
+
+    const float enhance = std::max(0.0f, targetWidth_ - 1.0f);
+    const float shapedSideLow = sideLow * targetWidth_ + decorrMid * (enhance * 0.45f);
 
     const float shapedLowL = midLow + shapedSideLow;
     const float shapedLowR = midLow - shapedSideLow;
@@ -103,7 +140,13 @@ void StereoFieldShaper::processBlock(float* leftChannel, float* rightChannel, in
         const float midLow = 0.5f * (splitL.low + splitR.low);
         const float sideLow = 0.5f * (splitL.low - splitR.low);
 
-        const float shapedSideLow = sideLow * currentWidth_;
+        float decorrMid = midLow;
+        for (auto& ap : decorrelator_) {
+            decorrMid = ap.process(decorrMid);
+        }
+
+        const float enhance = std::max(0.0f, currentWidth_ - 1.0f);
+        const float shapedSideLow = sideLow * currentWidth_ + decorrMid * (enhance * 0.45f);
 
         const float shapedLowL = midLow + shapedSideLow;
         const float shapedLowR = midLow - shapedSideLow;
