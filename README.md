@@ -2,6 +2,13 @@
 
 ![Analog Master Strip Banner](assets/banner.jpg)
 
+> **Built with one prompt with Gemini 3.8 Flash:**
+> *"let's create a VST plugin. a mastering plugin that has three capabilities: eq high cut, eq low cut, and low-end stereo field -- the stereo field should go from mono to stereo enhance on a dial and should have a knob selector for the frequency where the stereo field kicks in. for the lown-end stereo, it should basically only work with frequences below the knob selector and apply the stereo widening or narrowing to everything below that selected frequency. it's a simple interface, inspired by classic analog gear. generate graphics for the package as needed. create a new repo in github.com/alanmarcero, make it public. give it build pipelines similar to the winamp plugin i also have in github.com/alanmarcero for the low cut and high cut eq, it has a HARD slope cutoff for low end and highend. like -64db hard, as hard as you can really. but the slope it can also be configurable. the idea is we cut everything above 20khz and below 20hz but that should be loosely configurable with a dial or switch. make sure the ui is uniform and models classic analog gear.*
+> 
+> *dont ask questions. don't clarify. don't stop. do not pass go, just build it and deploy it."*
+
+---
+
 **Analog Master Strip** is a professional mastering VST3 audio plugin designed for surgical low/high-frequency boundary control and low-end stereo field sculpting, wrapped in a uniform, classic analog rackmount interface.
 
 ---
