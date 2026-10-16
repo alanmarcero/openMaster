@@ -146,7 +146,7 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
     };
 
     for (int i = 0; i < 4; ++i) {
-        float sx = sectionMargin + i * (sectionW + sectionSpacing);
+        float sx = sectionMargin + static_cast<float>(i) * (sectionW + sectionSpacing);
         juce::Rectangle<float> secRect(sx, sectionY, sectionW, sectionH);
 
         // Section background well
@@ -179,7 +179,7 @@ void AnalogMasterEditor::resized() {
     const float sectionW = (totalAvailW - sectionSpacing * 3.0f) * 0.25f;
 
     auto getSectionRect = [&](int index) {
-        float sx = sectionMargin + index * (sectionW + sectionSpacing);
+        float sx = sectionMargin + static_cast<float>(index) * (sectionW + sectionSpacing);
         return juce::Rectangle<float>(sx, sectionY, sectionW, sectionH);
     };
 
