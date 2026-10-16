@@ -5,7 +5,9 @@
 #include "VintageMeter.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
-class AnalogMasterEditor final : public juce::AudioProcessorEditor, private juce::Timer {
+class AnalogMasterEditor final : public juce::AudioProcessorEditor,
+                                  private juce::Timer,
+                                  private juce::AudioProcessorValueTreeState::Listener {
 public:
     explicit AnalogMasterEditor(AnalogMasterProcessor& owner);
     ~AnalogMasterEditor() override;
@@ -15,6 +17,7 @@ public:
 
 private:
     void timerCallback() override;
+    void parameterChanged(const juce::String& parameterID, float newValue) override;
     void applyTheme(int themeIndex);
 
     AnalogMasterProcessor& processor_;

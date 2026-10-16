@@ -26,7 +26,7 @@ public:
     void setBypassed(bool bypassed) noexcept;
 
     [[nodiscard]] FilterType type() const noexcept { return type_; }
-    [[nodiscard]] double cutoff() const noexcept { return cutoffHz_; }
+    [[nodiscard]] double cutoff() const noexcept { return targetCutoffHz_; }
     [[nodiscard]] FilterSlope slope() const noexcept { return slope_; }
     [[nodiscard]] bool isBypassed() const noexcept { return bypassed_; }
 
@@ -38,9 +38,11 @@ private:
 
     FilterType type_ = FilterType::LowPass;
     FilterSlope slope_ = FilterSlope::Slope24dB;
-    double cutoffHz_ = 1000.0;
+    double targetCutoffHz_ = 1000.0;
+    double currentCutoffHz_ = 1000.0;
     double sampleRate_ = 44100.0;
     bool bypassed_ = false;
+    float currentBypassGain_ = 1.0f; // 1.0 = active, 0.0 = bypassed
 
     int activeSections_ = 2;
     std::array<std::array<BiquadFilter, kMaxSections>, 2> filters_{};

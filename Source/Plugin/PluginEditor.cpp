@@ -92,6 +92,8 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
     masterGainAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kMasterGain, masterGainSlider_);
     masterBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterPower, masterBypassButton_);
 
+    processor_.parameters.addParameterListener(kTheme, this);
+
     applyTheme(themeBox_.getSelectedItemIndex());
 
     setSize(920, 380);
@@ -99,8 +101,17 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
 }
 
 AnalogMasterEditor::~AnalogMasterEditor() {
+    processor_.parameters.removeParameterListener(analog_master::params::kTheme, this);
     stopTimer();
     setLookAndFeel(nullptr);
+}
+
+void AnalogMasterEditor::parameterChanged(const juce::String& parameterID, float newValue) {
+    if (parameterID == analog_master::params::kTheme) {
+        juce::MessageManager::callAsync([this, idx = static_cast<int>(newValue)]() {
+            applyTheme(idx);
+        });
+    }
 }
 
 void AnalogMasterEditor::applyTheme(int themeIndex) {
@@ -121,12 +132,15 @@ void AnalogMasterEditor::applyTheme(int themeIndex) {
     masterGainLabel_.setColour(juce::Label::textColourId, pal.labelText);
     themeLabel_.setColour(juce::Label::textColourId, pal.labelText);
 
+    sendLookAndFeelChange();
     repaint();
 }
 
 void AnalogMasterEditor::timerCallback() {
     auto levels = processor_.meterLevels();
-    meter_.setLevels(levels.peakL, levels.peakR);
+    const float levelL = levels.vuL > 1e-4f ? levels.vuL : levels.peakL;
+    const float levelR = levels.vuR > 1e-4f ? levels.vuR : levels.peakR;
+    meter_.setLevels(levelL, levelR, levels.clipL, levels.clipR);
 }
 
 void AnalogMasterEditor::paint(juce::Graphics& g) {

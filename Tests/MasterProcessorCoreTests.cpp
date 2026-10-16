@@ -188,3 +188,81 @@ TEST_CASE("BiquadFilter gracefully handles NaN and non-finite inputs", "[biquad]
     REQUIRE(filter.process(0.5f) != 0.0f);
 }
 
+TEST_CASE("MasterProcessorCore slope changes during playback remain stable", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+
+    const int numSamples = 256;
+    std::vector<float> left(numSamples, 0.4f);
+    std::vector<float> right(numSamples, 0.4f);
+
+    const FilterSlope slopes[] = {
+        FilterSlope::Slope12dB,
+        FilterSlope::Slope96dB,
+        FilterSlope::Slope24dB,
+        FilterSlope::Slope64dB,
+        FilterSlope::Slope48dB
+    };
+
+    for (auto s : slopes) {
+        processor.setLowCutSlope(s);
+        processor.setHighCutSlope(s);
+        processor.processBlock(left.data(), right.data(), numSamples);
+
+        for (int i = 0; i < numSamples; ++i) {
+            REQUIRE(std::isfinite(left[i]));
+            REQUIRE(std::isfinite(right[i]));
+        }
+    }
+}
+
+TEST_CASE("MasterProcessorCore detects overload clip when signal reaches 0 dBFS", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setHighCutBypassed(true);
+    processor.setStereoFieldBypassed(true);
+
+    // Signal at 0.5 (safe, no clip)
+    std::vector<float> safeBlock(128, 0.5f);
+    processor.processBlock(safeBlock.data(), safeBlock.data(), 128);
+    auto safeLevels = processor.meterLevels();
+    REQUIRE_FALSE(safeLevels.clipL);
+
+    // Overload pulse at 1.05 (> 0 dBFS clip)
+    std::vector<float> clipBlock(128, 1.05f);
+    processor.processBlock(clipBlock.data(), clipBlock.data(), 128);
+    auto clipLevels = processor.meterLevels();
+    REQUIRE(clipLevels.clipL);
+    REQUIRE(clipLevels.clipR);
+}
+
+TEST_CASE("MasterProcessorCore computes steady IEC VU levels", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setHighCutBypassed(true);
+    processor.setStereoFieldBypassed(true);
+
+    // Feed 1 kHz sine wave for 1.5 s (5x tau for 99.3% steady-state VU integration)
+    const int numSamples = 72000;
+    std::vector<float> sineL(numSamples);
+    std::vector<float> sineR(numSamples);
+
+    for (int i = 0; i < numSamples; ++i) {
+        float val = static_cast<float>(std::sin(2.0 * std::numbers::pi * 1000.0 * i / fs));
+        sineL[i] = val;
+        sineR[i] = val;
+    }
+
+    processor.processBlock(sineL.data(), sineR.data(), numSamples);
+
+    auto levels = processor.meterLevels();
+    // For a 1.0 peak sine wave calibrated to VU, VU level should reach ~1.0
+    REQUIRE_THAT(levels.vuL, WithinAbs(1.0f, 0.05f));
+    REQUIRE_THAT(levels.vuR, WithinAbs(1.0f, 0.05f));
+}
+

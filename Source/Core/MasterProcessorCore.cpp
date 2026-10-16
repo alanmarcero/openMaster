@@ -24,6 +24,7 @@ void MasterProcessorCore::prepare(double sampleRate) noexcept {
         return;
     }
     sampleRate_ = sampleRate;
+    currentMasterBypassGain_ = masterBypassed_ ? 0.0f : 1.0f;
     lowCut_.prepare(sampleRate);
     stereoShaper_.prepare(sampleRate);
     highCut_.prepare(sampleRate);
@@ -35,8 +36,13 @@ void MasterProcessorCore::reset() noexcept {
     stereoShaper_.reset();
     highCut_.reset();
     currentGainLinear_ = targetGainLinear_;
+    currentMasterBypassGain_ = masterBypassed_ ? 0.0f : 1.0f;
     meterPeakL_.store(0.0f, std::memory_order_relaxed);
     meterPeakR_.store(0.0f, std::memory_order_relaxed);
+    meterVuL_.store(0.0f, std::memory_order_relaxed);
+    meterVuR_.store(0.0f, std::memory_order_relaxed);
+    meterClipL_.store(false, std::memory_order_relaxed);
+    meterClipR_.store(false, std::memory_order_relaxed);
 }
 
 void MasterProcessorCore::setLowCutFrequency(double freqHz) noexcept {
@@ -80,7 +86,11 @@ void MasterProcessorCore::setStereoFieldSoloLow(bool solo) noexcept {
 }
 
 void MasterProcessorCore::setMasterGainDb(float gainDb) noexcept {
-    masterGainDb_ = std::clamp(gainDb, -24.0f, 24.0f);
+    const float clamped = std::clamp(gainDb, -24.0f, 24.0f);
+    if (std::abs(masterGainDb_ - clamped) < 1e-4f) {
+        return;
+    }
+    masterGainDb_ = clamped;
     targetGainLinear_ = std::pow(10.0f, masterGainDb_ / 20.0f);
 }
 
@@ -95,29 +105,45 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
 
     float currentPeakL = meterPeakL_.load(std::memory_order_relaxed);
     float currentPeakR = meterPeakR_.load(std::memory_order_relaxed);
+    float currentVuL = meterVuL_.load(std::memory_order_relaxed);
+    float currentVuR = meterVuR_.load(std::memory_order_relaxed);
+
+    const float decay = std::exp(-static_cast<float>(numSamples) / (0.3f * static_cast<float>(sampleRate_)));
+    const float vuAlpha = 1.0f - decay;
 
     if (masterBypassed_) {
         // Transparent bypass: track dry levels
+        float sumAbsL = 0.0f;
+        float sumAbsR = 0.0f;
         for (int i = 0; i < numSamples; ++i) {
             float absL = std::abs(leftChannel[i]);
+            sumAbsL += absL;
             if (absL > currentPeakL) {
                 currentPeakL = absL;
             }
             if (rightChannel != nullptr) {
                 float absR = std::abs(rightChannel[i]);
+                sumAbsR += absR;
                 if (absR > currentPeakR) {
                     currentPeakR = absR;
                 }
             }
         }
 
-        // 300ms VU meter exponential decay
-        const float decay = std::exp(-static_cast<float>(numSamples) / (0.3f * static_cast<float>(sampleRate_)));
         currentPeakL *= decay;
         currentPeakR *= decay;
 
+        const float meanL = sumAbsL / static_cast<float>(numSamples);
+        const float meanR = sumAbsR / static_cast<float>(numSamples);
+        currentVuL += vuAlpha * (meanL * 1.5708f - currentVuL);
+        currentVuR += vuAlpha * (meanR * 1.5708f - currentVuR);
+
         meterPeakL_.store(currentPeakL, std::memory_order_relaxed);
         meterPeakR_.store(currentPeakR, std::memory_order_relaxed);
+        meterVuL_.store(currentVuL, std::memory_order_relaxed);
+        meterVuR_.store(currentVuR, std::memory_order_relaxed);
+        meterClipL_.store(currentPeakL >= 0.999f, std::memory_order_relaxed);
+        meterClipR_.store(currentPeakR >= 0.999f, std::memory_order_relaxed);
         return;
     }
 
@@ -138,11 +164,15 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
     const float endGain = targetGainLinear_;
     const float gainStep = (endGain - startGain) / static_cast<float>(numSamples);
 
+    float sumAbsL = 0.0f;
+    float sumAbsR = 0.0f;
+
     for (int i = 0; i < numSamples; ++i) {
         currentGainLinear_ += gainStep;
 
         leftChannel[i] *= currentGainLinear_;
         float absL = std::abs(leftChannel[i]);
+        sumAbsL += absL;
         if (absL > currentPeakL) {
             currentPeakL = absL;
         }
@@ -150,6 +180,7 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
         if (rightChannel != nullptr) {
             rightChannel[i] *= currentGainLinear_;
             float absR = std::abs(rightChannel[i]);
+            sumAbsR += absR;
             if (absR > currentPeakR) {
                 currentPeakR = absR;
             }
@@ -159,12 +190,20 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
     currentGainLinear_ = endGain;
 
     // 300ms analog VU integration ballistics decay
-    const float decay = std::exp(-static_cast<float>(numSamples) / (0.3f * static_cast<float>(sampleRate_)));
     currentPeakL *= decay;
     currentPeakR *= decay;
 
+    const float meanL = sumAbsL / static_cast<float>(numSamples);
+    const float meanR = sumAbsR / static_cast<float>(numSamples);
+    currentVuL += vuAlpha * (meanL * 1.5708f - currentVuL);
+    currentVuR += vuAlpha * (meanR * 1.5708f - currentVuR);
+
     meterPeakL_.store(currentPeakL, std::memory_order_relaxed);
     meterPeakR_.store(currentPeakR, std::memory_order_relaxed);
+    meterVuL_.store(currentVuL, std::memory_order_relaxed);
+    meterVuR_.store(currentVuR, std::memory_order_relaxed);
+    meterClipL_.store(currentPeakL >= 0.999f, std::memory_order_relaxed);
+    meterClipR_.store(currentPeakR >= 0.999f, std::memory_order_relaxed);
 }
 
 } // namespace analog_master::core

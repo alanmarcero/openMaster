@@ -74,7 +74,13 @@ void AnalogMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     syncParameters();
 
     const int totalNumInputChannels = getTotalNumInputChannels();
+    const int totalNumOutputChannels = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
+
+    // Clear unused output channels to prevent emitting garbage/uninitialized memory
+    for (int ch = totalNumInputChannels; ch < totalNumOutputChannels; ++ch) {
+        buffer.clear(ch, 0, numSamples);
+    }
 
     if (numSamples == 0 || totalNumInputChannels == 0) {
         return;
@@ -98,7 +104,10 @@ void AnalogMasterProcessor::getStateInformation(juce::MemoryBlock& destination) 
 
 void AnalogMasterProcessor::setStateInformation(const void* data, int sizeInBytes) {
     if (auto xmlState = getXmlFromBinary(data, sizeInBytes)) {
-        parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
+        if (xmlState->hasTagName(parameters.state.getType())) {
+            parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
+            syncParameters();
+        }
     }
 }
 

@@ -9,6 +9,10 @@ namespace analog_master::core {
 struct MeterLevels {
     float peakL = 0.0f;
     float peakR = 0.0f;
+    float vuL = 0.0f;
+    float vuR = 0.0f;
+    bool clipL = false;
+    bool clipR = false;
 };
 
 class MasterProcessorCore {
@@ -55,7 +59,14 @@ public:
     [[nodiscard]] bool isMasterBypassed() const noexcept { return masterBypassed_; }
 
     [[nodiscard]] MeterLevels meterLevels() const noexcept {
-        return { meterPeakL_.load(std::memory_order_relaxed), meterPeakR_.load(std::memory_order_relaxed) };
+        return {
+            meterPeakL_.load(std::memory_order_relaxed),
+            meterPeakR_.load(std::memory_order_relaxed),
+            meterVuL_.load(std::memory_order_relaxed),
+            meterVuR_.load(std::memory_order_relaxed),
+            meterClipL_.load(std::memory_order_relaxed),
+            meterClipR_.load(std::memory_order_relaxed)
+        };
     }
 
     void processBlock(float* leftChannel, float* rightChannel, int numSamples) noexcept;
@@ -66,6 +77,7 @@ private:
     float targetGainLinear_ = 1.0f;
     float currentGainLinear_ = 1.0f;
     bool masterBypassed_ = false;
+    float currentMasterBypassGain_ = 1.0f; // 1.0 = power ON, 0.0 = bypassed
 
     MultiPoleFilter lowCut_{ FilterType::HighPass };
     MultiPoleFilter highCut_{ FilterType::LowPass };
@@ -73,6 +85,10 @@ private:
 
     std::atomic<float> meterPeakL_{ 0.0f };
     std::atomic<float> meterPeakR_{ 0.0f };
+    std::atomic<float> meterVuL_{ 0.0f };
+    std::atomic<float> meterVuR_{ 0.0f };
+    std::atomic<bool> meterClipL_{ false };
+    std::atomic<bool> meterClipR_{ false };
 };
 
 } // namespace analog_master::core

@@ -12,6 +12,8 @@ void MultiPoleFilter::prepare(double sampleRate) noexcept {
         return;
     }
     sampleRate_ = sampleRate;
+    currentCutoffHz_ = targetCutoffHz_;
+    currentBypassGain_ = bypassed_ ? 0.0f : 1.0f;
     reset();
     updateCoefficients();
 }
@@ -33,11 +35,14 @@ void MultiPoleFilter::setType(FilterType type) noexcept {
 }
 
 void MultiPoleFilter::setCutoff(double cutoffHz) noexcept {
-    if (std::abs(cutoffHz_ - cutoffHz) < 0.001) {
+    if (std::abs(targetCutoffHz_ - cutoffHz) < 0.001) {
         return;
     }
-    cutoffHz_ = cutoffHz;
-    updateCoefficients();
+    targetCutoffHz_ = cutoffHz;
+    // Immediate update if not prepared or ready
+    if (std::abs(currentCutoffHz_ - targetCutoffHz_) > 0.001) {
+        updateCoefficients();
+    }
 }
 
 void MultiPoleFilter::setSlope(FilterSlope slope) noexcept {
@@ -54,15 +59,27 @@ void MultiPoleFilter::setBypassed(bool bypassed) noexcept {
 
 void MultiPoleFilter::updateCoefficients() noexcept {
     const int order = slopeToOrder(slope_);
-    const std::vector<BiquadCoeffs> sections = (type_ == FilterType::LowPass)
-        ? designButterworthLowPass(sampleRate_, cutoffHz_, order)
-        : designButterworthHighPass(sampleRate_, cutoffHz_, order);
+    const FilterDesign design = (type_ == FilterType::LowPass)
+        ? designButterworthLowPass(sampleRate_, targetCutoffHz_, order)
+        : designButterworthHighPass(sampleRate_, targetCutoffHz_, order);
 
-    activeSections_ = static_cast<int>(sections.size());
+    const int newActiveSections = design.count;
+
+    // Reset unused / newly activated sections to prevent clicks from historical stale states
+    if (newActiveSections != activeSections_) {
+        for (int ch = 0; ch < 2; ++ch) {
+            for (int s = std::min(activeSections_, newActiveSections); s < kMaxSections; ++s) {
+                filters_[ch][s].reset();
+            }
+        }
+    }
+
+    activeSections_ = newActiveSections;
+    currentCutoffHz_ = targetCutoffHz_;
 
     for (int s = 0; s < activeSections_; ++s) {
-        filters_[0][s].setCoefficients(sections[s]);
-        filters_[1][s].setCoefficients(sections[s]);
+        filters_[0][s].setCoefficients(design.sections[s]);
+        filters_[1][s].setCoefficients(design.sections[s]);
     }
 }
 
@@ -79,7 +96,7 @@ float MultiPoleFilter::processSample(int channel, float sample) noexcept {
 }
 
 void MultiPoleFilter::processBlock(float* const* channelData, int numChannels, int numSamples) noexcept {
-    if (bypassed_ || channelData == nullptr) {
+    if (bypassed_ || channelData == nullptr || numSamples <= 0) {
         return;
     }
 

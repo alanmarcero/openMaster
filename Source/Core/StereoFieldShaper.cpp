@@ -9,6 +9,8 @@ void StereoFieldShaper::prepare(double sampleRate) noexcept {
     }
     crossoverL_.prepare(sampleRate);
     crossoverR_.prepare(sampleRate);
+    currentBypassGain_ = bypassed_ ? 0.0f : 1.0f;
+    currentSoloGain_ = soloLow_ ? 1.0f : 0.0f;
     reset();
 }
 
@@ -19,6 +21,9 @@ void StereoFieldShaper::reset() noexcept {
 }
 
 void StereoFieldShaper::setCrossoverFrequency(double freqHz) noexcept {
+    if (std::abs(crossoverHz_ - freqHz) < 0.001) {
+        return;
+    }
     crossoverHz_ = freqHz;
     crossoverL_.setCrossoverFrequency(freqHz);
     crossoverR_.setCrossoverFrequency(freqHz);
@@ -89,8 +94,11 @@ void StereoFieldShaper::processBlock(float* leftChannel, float* rightChannel, in
     for (int i = 0; i < numSamples; ++i) {
         currentWidth_ += widthStep;
 
-        const auto splitL = crossoverL_.process(leftChannel[i]);
-        const auto splitR = crossoverR_.process(rightChannel[i]);
+        const float dryL = leftChannel[i];
+        const float dryR = rightChannel[i];
+
+        const auto splitL = crossoverL_.process(dryL);
+        const auto splitR = crossoverR_.process(dryR);
 
         const float midLow = 0.5f * (splitL.low + splitR.low);
         const float sideLow = 0.5f * (splitL.low - splitR.low);

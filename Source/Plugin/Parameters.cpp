@@ -19,7 +19,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         "Low Cut Frequency",
         juce::NormalisableRange<float>(10.0f, 200.0f, 0.1f, 0.35f),
         20.0f,
-        juce::AudioParameterFloatAttributes().withLabel("Hz")
+        juce::AudioParameterFloatAttributes()
+            .withLabel("Hz")
+            .withStringFromValueFunction([](float val, int) {
+                return val < 100.0f ? juce::String(val, 1) + " Hz" : juce::String(std::round(val)) + " Hz";
+            })
     ));
 
     layout.add(std::make_unique<juce::AudioParameterChoice>(
@@ -41,7 +45,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         "Stereo Crossover",
         juce::NormalisableRange<float>(40.0f, 500.0f, 1.0f, 0.45f),
         120.0f,
-        juce::AudioParameterFloatAttributes().withLabel("Hz")
+        juce::AudioParameterFloatAttributes()
+            .withLabel("Hz")
+            .withStringFromValueFunction([](float val, int) {
+                return juce::String(std::round(val)) + " Hz";
+            })
     ));
 
     layout.add(std::make_unique<juce::AudioParameterFloat>(
@@ -49,7 +57,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         "Low Stereo Width",
         juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f),
         0.0f, // Default 0% = Mono low-end
-        juce::AudioParameterFloatAttributes().withLabel("%")
+        juce::AudioParameterFloatAttributes()
+            .withLabel("%")
+            .withStringFromValueFunction([](float val, int) {
+                if (val <= 0.5f) return juce::String("0% (Mono)");
+                if (std::abs(val - 100.0f) < 0.5f) return juce::String("100% (Stereo)");
+                if (val >= 199.5f) return juce::String("200% (Enhanced)");
+                return juce::String(std::round(val)) + "%";
+            })
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
@@ -70,7 +85,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         "High Cut Frequency",
         juce::NormalisableRange<float>(8000.0f, 24000.0f, 10.0f, 0.5f),
         20000.0f,
-        juce::AudioParameterFloatAttributes().withLabel("Hz")
+        juce::AudioParameterFloatAttributes()
+            .withLabel("Hz")
+            .withStringFromValueFunction([](float val, int) {
+                return juce::String(val / 1000.0f, 1) + " kHz";
+            })
     ));
 
     layout.add(std::make_unique<juce::AudioParameterChoice>(
@@ -92,7 +111,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         "Master Trim",
         juce::NormalisableRange<float>(-18.0f, 18.0f, 0.1f),
         0.0f,
-        juce::AudioParameterFloatAttributes().withLabel("dB")
+        juce::AudioParameterFloatAttributes()
+            .withLabel("dB")
+            .withStringFromValueFunction([](float val, int) {
+                return (val > 0.05f ? "+" : "") + juce::String(val, 1) + " dB";
+            })
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(

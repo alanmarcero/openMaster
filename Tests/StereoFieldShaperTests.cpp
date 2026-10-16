@@ -101,3 +101,59 @@ TEST_CASE("StereoFieldShaper passthrough when width is 1.0", "[stereo]") {
     }
     REQUIRE_THAT(peak, WithinAbs(1.0f, 0.02f));
 }
+
+TEST_CASE("StereoFieldShaper enhances stereo width when width is 2.0", "[stereo]") {
+    const double fs = 48000.0;
+    StereoFieldShaper shaper;
+    shaper.prepare(fs);
+    shaper.setCrossoverFrequency(200.0);
+    shaper.setWidth(2.0f); // 200% Enhanced stereo
+
+    const double freq = 60.0;
+    const int numSamples = 2000;
+    std::vector<float> left(numSamples);
+    std::vector<float> right(numSamples);
+
+    for (int i = 0; i < numSamples; ++i) {
+        float val = static_cast<float>(std::sin(2.0 * std::numbers::pi * freq * i / fs));
+        left[i] = val * 0.5f;
+        right[i] = -val * 0.5f; // Pure side signal with amplitude 0.5
+    }
+
+    shaper.processBlock(left.data(), right.data(), numSamples);
+
+    // With width 2.0, side component is doubled: amplitude should reach ~1.0
+    float peak = 0.0f;
+    for (int i = 1000; i < numSamples; ++i) {
+        peak = std::max(peak, std::abs(left[i]));
+    }
+    REQUIRE(peak > 0.90f);
+}
+
+TEST_CASE("StereoFieldShaper solo low band mutes high frequencies", "[stereo]") {
+    const double fs = 48000.0;
+    StereoFieldShaper shaper;
+    shaper.prepare(fs);
+    shaper.setCrossoverFrequency(150.0);
+    shaper.setSoloLow(true);
+
+    const int numSamples = 2000;
+    std::vector<float> left(numSamples);
+    std::vector<float> right(numSamples);
+
+    // 5000 Hz high frequency tone
+    for (int i = 0; i < numSamples; ++i) {
+        float val = static_cast<float>(std::sin(2.0 * std::numbers::pi * 5000.0 * i / fs));
+        left[i] = val;
+        right[i] = val;
+    }
+
+    shaper.processBlock(left.data(), right.data(), numSamples);
+
+    // Under Solo Low, high frequencies must be heavily attenuated (> 40 dB cut)
+    float highPeak = 0.0f;
+    for (int i = 1000; i < numSamples; ++i) {
+        highPeak = std::max(highPeak, std::abs(left[i]));
+    }
+    REQUIRE(highPeak < 0.01f);
+}

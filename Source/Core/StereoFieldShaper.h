@@ -29,7 +29,9 @@ private:
     float targetWidth_ = 0.0f; // Default 0.0 = Mono low-end (mastering classic)
     float currentWidth_ = 0.0f;
     bool bypassed_ = false;
+    float currentBypassGain_ = 1.0f; // 1.0 = active, 0.0 = bypassed
     bool soloLow_ = false;
+    float currentSoloGain_ = 0.0f; // 1.0 = solo low, 0.0 = full mix
 
     LinkwitzRiley4 crossoverL_{};
     LinkwitzRiley4 crossoverR_{};

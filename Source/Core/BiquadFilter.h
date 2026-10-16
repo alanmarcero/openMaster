@@ -38,7 +38,13 @@ public:
         s1_ = coeffs_.b1 * in - coeffs_.a1 * out + s2_;
         s2_ = coeffs_.b2 * in - coeffs_.a2 * out;
 
-        // Prevent denormals
+        // Catch non-finite filter divergence / instability
+        if (!std::isfinite(out)) {
+            reset();
+            return 0.0f;
+        }
+
+        // Flush denormals
         if (std::abs(s1_) < 1e-25) {
             s1_ = 0.0;
         }

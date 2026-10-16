@@ -26,7 +26,7 @@ const char* slopeToString(FilterSlope slope) noexcept {
     return "24 dB/oct";
 }
 
-std::vector<BiquadCoeffs> designButterworthLowPass(
+FilterDesign designButterworthLowPass(
     double sampleRate,
     double cutoffHz,
     int order
@@ -43,8 +43,8 @@ std::vector<BiquadCoeffs> designButterworthLowPass(
     const double K2 = K * K;
     const int numSections = safeOrder / 2;
 
-    std::vector<BiquadCoeffs> sections;
-    sections.reserve(numSections);
+    FilterDesign design;
+    design.count = numSections;
 
     for (int k = 0; k < numSections; ++k) {
         const double theta = (2.0 * k + 1.0) * std::numbers::pi / (2.0 * safeOrder);
@@ -57,13 +57,13 @@ std::vector<BiquadCoeffs> designButterworthLowPass(
         const double a1 = 2.0 * (K2 - 1.0) * norm;
         const double a2 = (1.0 - (K / Q) + K2) * norm;
 
-        sections.push_back({ b0, b1, b2, a1, a2 });
+        design.sections[static_cast<size_t>(k)] = { b0, b1, b2, a1, a2 };
     }
 
-    return sections;
+    return design;
 }
 
-std::vector<BiquadCoeffs> designButterworthHighPass(
+FilterDesign designButterworthHighPass(
     double sampleRate,
     double cutoffHz,
     int order
@@ -80,8 +80,8 @@ std::vector<BiquadCoeffs> designButterworthHighPass(
     const double K2 = K * K;
     const int numSections = safeOrder / 2;
 
-    std::vector<BiquadCoeffs> sections;
-    sections.reserve(numSections);
+    FilterDesign design;
+    design.count = numSections;
 
     for (int k = 0; k < numSections; ++k) {
         const double theta = (2.0 * k + 1.0) * std::numbers::pi / (2.0 * safeOrder);
@@ -94,10 +94,10 @@ std::vector<BiquadCoeffs> designButterworthHighPass(
         const double a1 = 2.0 * (K2 - 1.0) * norm;
         const double a2 = (1.0 - (K / Q) + K2) * norm;
 
-        sections.push_back({ b0, b1, b2, a1, a2 });
+        design.sections[static_cast<size_t>(k)] = { b0, b1, b2, a1, a2 };
     }
 
-    return sections;
+    return design;
 }
 
 } // namespace analog_master::core
