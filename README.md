@@ -41,7 +41,7 @@ The interface includes a real-time **LOOK** selector in the top header, allowing
 ## Capabilities
 
 ### 1. Ultra-Steep Low Cut EQ
-- **Nominal Cutoff:** 20 Hz (loosely configurable from 10 Hz to 200 Hz).
+- **Frequency Dial:** Range from 10 Hz to 200 Hz (nominal 20 Hz default, silk-screened at `10`, `20`, `40`, `80`, `200` Hz).
 - **Hard Slope Cutoff:** Configurable slopes:
   - `12 dB/oct` (2-pole Butterworth)
   - `24 dB/oct` (4-pole Butterworth)
@@ -49,23 +49,24 @@ The interface includes a real-time **LOOK** selector in the top header, allowing
   - `64 dB/oct` (12-pole cascaded Butterworth — ultra-hard slope)
   - `96 dB/oct` (16-pole cascaded Butterworth — extreme brickwall)
 - Eliminates sub-audible DC rumble and frees up precious mastering headroom with zero passband ripple.
-- Independent bypass toggle with warm glowing amber jewel pilot lamp.
+- **Dedicated IN Bypass Switch:** Toggle switch with glowing jewel pilot lamp to A/B sub-bass cleanup instantly.
 
 ### 2. Low-End Stereo Field Shaper
 - **Continuously Variable Stereo Field Dial:**
   - `0%` = **Pure Mono** (completely eliminates out-of-phase low-end rumble for punchy vinyl/club-ready bass).
   - `100%` = **Original Stereo** (transparent pass-through).
   - `200%` = **Stereo Enhance** (widens and blooms the low-end stereo image).
-- **Crossover Frequency Selector Knob:** Configurable cutoff (40 Hz to 500 Hz). The stereo field processing affects **only** audio frequencies below this selector, leaving everything above the crossover frequency in pristine, untouched stereo.
+- **Crossover Frequency Selector Knob:** Configurable cutoff (40 Hz to 500 Hz, silk-screened at `40`, `80`, `120`, `250`, `500` Hz). The stereo field processing affects **only** audio frequencies below this selector, leaving everything above the crossover frequency in pristine, untouched stereo.
 - **Linkwitz-Riley 4th-Order (LR4) Phase-Matched Crossover:** Flat magnitude sum across the entire spectrum.
+- **Dedicated IN Bypass Switch:** Independent bypass toggle with glowing jewel pilot lamp for instant stereo imaging comparison.
 - **Solo Low Band Audition Switch:** Isolates and audits exclusively the processed low-end frequencies.
 
 ### 3. Ultra-Steep High Cut EQ
-- **Nominal Cutoff:** 20 kHz (loosely configurable from 8 kHz to 24 kHz).
+- **Frequency Dial:** Range from 8 kHz to 24 kHz (nominal 20 kHz default, silk-screened at `8`, `12`, `15`, `20`, `24` kHz).
 - **Hard Slope Cutoff:** Configurable slopes:
   - `12 dB/oct`, `24 dB/oct`, `48 dB/oct`, `64 dB/oct (Hard)`, `96 dB/oct (Brickwall)`.
 - Removes harsh ultrasonic frequencies, aliasing, and digital sheen above the human audible spectrum.
-- Independent bypass toggle with warm glowing amber jewel pilot lamp.
+- **Dedicated IN Bypass Switch:** Toggle switch with glowing jewel pilot lamp to audition air contouring.
 
 ### 4. Master Output & Analog Metering
 - **Master Trim:** Continuous ±18 dB analog output gain.
