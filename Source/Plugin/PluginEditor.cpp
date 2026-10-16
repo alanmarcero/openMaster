@@ -78,19 +78,19 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
 
     lowCutFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kLowCutFreq, lowCutFreqSlider_);
     lowCutSlopeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kLowCutSlope, lowCutSlopeBox_);
-    lowCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kLowCutBypass, lowCutBypassButton_);
+    lowCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kLowCutIn, lowCutBypassButton_);
 
     stereoFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kStereoFreq, stereoFreqSlider_);
     stereoWidthAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kStereoWidth, stereoWidthSlider_);
-    stereoBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kStereoBypass, stereoBypassButton_);
+    stereoBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kStereoIn, stereoBypassButton_);
     stereoSoloAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kStereoSoloLow, stereoSoloButton_);
 
     highCutFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kHighCutFreq, highCutFreqSlider_);
     highCutSlopeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kHighCutSlope, highCutSlopeBox_);
-    highCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kHighCutBypass, highCutBypassButton_);
+    highCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kHighCutIn, highCutBypassButton_);
 
     masterGainAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kMasterGain, masterGainSlider_);
-    masterBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterBypass, masterBypassButton_);
+    masterBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterPower, masterBypassButton_);
 
     applyTheme(themeBox_.getSelectedItemIndex());
 

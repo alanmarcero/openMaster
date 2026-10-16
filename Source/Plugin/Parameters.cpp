@@ -30,9 +30,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID{ kLowCutBypass, 1 },
-        "Low Cut Bypass",
-        false
+        juce::ParameterID{ kLowCutIn, 1 },
+        "Low Cut Active",
+        true // Engaged by default
     ));
 
     // 2. Low-End Stereo Field
@@ -53,9 +53,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID{ kStereoBypass, 1 },
-        "Stereo Bypass",
-        false
+        juce::ParameterID{ kStereoIn, 1 },
+        "Stereo Field Active",
+        true // Engaged by default
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
@@ -81,12 +81,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID{ kHighCutBypass, 1 },
-        "High Cut Bypass",
-        false
+        juce::ParameterID{ kHighCutIn, 1 },
+        "High Cut Active",
+        true // Engaged by default
     ));
 
-    // 4. Master Output & Bypass
+    // 4. Master Output & Power
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{ kMasterGain, 1 },
         "Master Trim",
@@ -96,9 +96,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID{ kMasterBypass, 1 },
-        "Master Bypass",
-        false
+        juce::ParameterID{ kMasterPower, 1 },
+        "Master Power",
+        true // Power ON by default
     ));
 
     // 5. Visual Faceplate Theme (4 Looks)

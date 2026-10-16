@@ -34,6 +34,7 @@ void MasterProcessorCore::reset() noexcept {
     lowCut_.reset();
     stereoShaper_.reset();
     highCut_.reset();
+    currentGainLinear_ = targetGainLinear_;
     meterPeakL_.store(0.0f, std::memory_order_relaxed);
     meterPeakR_.store(0.0f, std::memory_order_relaxed);
 }
@@ -80,7 +81,7 @@ void MasterProcessorCore::setStereoFieldSoloLow(bool solo) noexcept {
 
 void MasterProcessorCore::setMasterGainDb(float gainDb) noexcept {
     masterGainDb_ = std::clamp(gainDb, -24.0f, 24.0f);
-    masterGainLinear_ = std::pow(10.0f, masterGainDb_ / 20.0f);
+    targetGainLinear_ = std::pow(10.0f, masterGainDb_ / 20.0f);
 }
 
 void MasterProcessorCore::setMasterBypassed(bool bypassed) noexcept {
@@ -92,47 +93,78 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
         return;
     }
 
-    float blockPeakL = 0.0f;
-    float blockPeakR = 0.0f;
+    float currentPeakL = meterPeakL_.load(std::memory_order_relaxed);
+    float currentPeakR = meterPeakR_.load(std::memory_order_relaxed);
 
     if (masterBypassed_) {
+        // Transparent bypass: track dry levels
         for (int i = 0; i < numSamples; ++i) {
-            blockPeakL = std::max(blockPeakL, std::abs(leftChannel[i]));
+            float absL = std::abs(leftChannel[i]);
+            if (absL > currentPeakL) {
+                currentPeakL = absL;
+            }
             if (rightChannel != nullptr) {
-                blockPeakR = std::max(blockPeakR, std::abs(rightChannel[i]));
+                float absR = std::abs(rightChannel[i]);
+                if (absR > currentPeakR) {
+                    currentPeakR = absR;
+                }
             }
         }
-        meterPeakL_.store(blockPeakL, std::memory_order_relaxed);
-        meterPeakR_.store(blockPeakR, std::memory_order_relaxed);
+
+        // 300ms VU meter exponential decay
+        const float decay = std::exp(-static_cast<float>(numSamples) / (0.3f * static_cast<float>(sampleRate_)));
+        currentPeakL *= decay;
+        currentPeakR *= decay;
+
+        meterPeakL_.store(currentPeakL, std::memory_order_relaxed);
+        meterPeakR_.store(currentPeakR, std::memory_order_relaxed);
         return;
     }
 
     float* channels[2] = { leftChannel, rightChannel ? rightChannel : leftChannel };
+    const int numChannels = (rightChannel != nullptr) ? 2 : 1;
 
     // 1. Ultra-steep Low Cut EQ
-    lowCut_.processBlock(channels, rightChannel ? 2 : 1, numSamples);
+    lowCut_.processBlock(channels, numChannels, numSamples);
 
     // 2. Low-End Stereo Field Shaper
-    if (rightChannel != nullptr) {
-        stereoShaper_.processBlock(leftChannel, rightChannel, numSamples);
-    }
+    stereoShaper_.processBlock(leftChannel, rightChannel, numSamples);
 
     // 3. Ultra-steep High Cut EQ
-    highCut_.processBlock(channels, rightChannel ? 2 : 1, numSamples);
+    highCut_.processBlock(channels, numChannels, numSamples);
 
-    // 4. Master Gain & Peak Tracking
+    // 4. Master Gain with anti-zipper linear smoothing & VU ballistic tracking
+    const float startGain = currentGainLinear_;
+    const float endGain = targetGainLinear_;
+    const float gainStep = (endGain - startGain) / static_cast<float>(numSamples);
+
     for (int i = 0; i < numSamples; ++i) {
-        leftChannel[i] *= masterGainLinear_;
-        blockPeakL = std::max(blockPeakL, std::abs(leftChannel[i]));
+        currentGainLinear_ += gainStep;
+
+        leftChannel[i] *= currentGainLinear_;
+        float absL = std::abs(leftChannel[i]);
+        if (absL > currentPeakL) {
+            currentPeakL = absL;
+        }
 
         if (rightChannel != nullptr) {
-            rightChannel[i] *= masterGainLinear_;
-            blockPeakR = std::max(blockPeakR, std::abs(rightChannel[i]));
+            rightChannel[i] *= currentGainLinear_;
+            float absR = std::abs(rightChannel[i]);
+            if (absR > currentPeakR) {
+                currentPeakR = absR;
+            }
         }
     }
 
-    meterPeakL_.store(blockPeakL, std::memory_order_relaxed);
-    meterPeakR_.store(blockPeakR, std::memory_order_relaxed);
+    currentGainLinear_ = endGain;
+
+    // 300ms analog VU integration ballistics decay
+    const float decay = std::exp(-static_cast<float>(numSamples) / (0.3f * static_cast<float>(sampleRate_)));
+    currentPeakL *= decay;
+    currentPeakR *= decay;
+
+    meterPeakL_.store(currentPeakL, std::memory_order_relaxed);
+    meterPeakR_.store(currentPeakR, std::memory_order_relaxed);
 }
 
 } // namespace analog_master::core

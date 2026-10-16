@@ -51,11 +51,11 @@ std::vector<BiquadCoeffs> designButterworthLowPass(
         const double Q = 1.0 / (2.0 * std::cos(theta));
 
         const double norm = 1.0 / (1.0 + (K / Q) + K2);
-        const float b0 = static_cast<float>(K2 * norm);
-        const float b1 = static_cast<float>(2.0 * b0);
-        const float b2 = b0;
-        const float a1 = static_cast<float>(2.0 * (K2 - 1.0) * norm);
-        const float a2 = static_cast<float>((1.0 - (K / Q) + K2) * norm);
+        const double b0 = K2 * norm;
+        const double b1 = 2.0 * b0;
+        const double b2 = b0;
+        const double a1 = 2.0 * (K2 - 1.0) * norm;
+        const double a2 = (1.0 - (K / Q) + K2) * norm;
 
         sections.push_back({ b0, b1, b2, a1, a2 });
     }
@@ -88,11 +88,11 @@ std::vector<BiquadCoeffs> designButterworthHighPass(
         const double Q = 1.0 / (2.0 * std::cos(theta));
 
         const double norm = 1.0 / (1.0 + (K / Q) + K2);
-        const float b0 = static_cast<float>(norm);
-        const float b1 = static_cast<float>(-2.0 * norm);
-        const float b2 = static_cast<float>(norm);
-        const float a1 = static_cast<float>(2.0 * (K2 - 1.0) * norm);
-        const float a2 = static_cast<float>((1.0 - (K / Q) + K2) * norm);
+        const double b0 = norm;
+        const double b1 = -2.0 * norm;
+        const double b2 = norm;
+        const double a1 = 2.0 * (K2 - 1.0) * norm;
+        const double a2 = (1.0 - (K / Q) + K2) * norm;
 
         sections.push_back({ b0, b1, b2, a1, a2 });
     }

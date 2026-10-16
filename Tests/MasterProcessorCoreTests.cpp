@@ -101,3 +101,90 @@ TEST_CASE("MasterProcessorCore bypass passes audio untouched", "[master]") {
         REQUIRE_THAT(right[i], WithinAbs(-0.42f, 1e-6));
     }
 }
+
+TEST_CASE("MasterProcessorCore handles mono channels seamlessly", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+
+    const int numSamples = 128;
+    std::vector<float> mono(numSamples, 0.5f);
+
+    // Pass nullptr for rightChannel to simulate mono track
+    processor.processBlock(mono.data(), nullptr, numSamples);
+
+    for (int i = 0; i < numSamples; ++i) {
+        REQUIRE(std::isfinite(mono[i]));
+    }
+
+    auto levels = processor.meterLevels();
+    REQUIRE(levels.peakL > 0.0f);
+}
+
+TEST_CASE("MasterProcessorCore smooths gain changes without step clicks", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setHighCutBypassed(true);
+    processor.setStereoFieldBypassed(true);
+    processor.setMasterGainDb(0.0f);
+
+    const int numSamples = 64;
+    std::vector<float> left(numSamples, 1.0f);
+    std::vector<float> right(numSamples, 1.0f);
+
+    // Initial block at 0 dB (unity gain)
+    processor.processBlock(left.data(), right.data(), numSamples);
+
+    // Abrupt step to +6 dB (gain = 2.0)
+    processor.setMasterGainDb(6.0206f);
+
+    std::vector<float> leftRamp(numSamples, 1.0f);
+    std::vector<float> rightRamp(numSamples, 1.0f);
+    processor.processBlock(leftRamp.data(), rightRamp.data(), numSamples);
+
+    // First sample of the ramp should start near 1.0, not instantaneously jump to 2.0
+    REQUIRE(leftRamp[0] < 1.15f);
+    // Last sample should reach ~2.0
+    REQUIRE_THAT(leftRamp[numSamples - 1], WithinAbs(2.0f, 0.05f));
+}
+
+TEST_CASE("MasterProcessorCore tracks peak transients with exponential decay", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setHighCutBypassed(true);
+
+    // Impulse transient
+    std::vector<float> impulse(64, 0.0f);
+    impulse[0] = 1.0f;
+    std::vector<float> rightImpulse(64, 0.0f);
+    rightImpulse[0] = 0.8f;
+
+    processor.processBlock(impulse.data(), rightImpulse.data(), 64);
+
+    auto levels = processor.meterLevels();
+    REQUIRE(levels.peakL > 0.9f);
+    REQUIRE(levels.peakR > 0.7f);
+
+    // Now feed silence and observe exponential decay
+    std::vector<float> silence(4800, 0.0f); // 100 ms
+    processor.processBlock(silence.data(), silence.data(), 4800);
+
+    auto decayedLevels = processor.meterLevels();
+    REQUIRE(decayedLevels.peakL < levels.peakL);
+    REQUIRE(decayedLevels.peakL > 0.0f);
+}
+
+TEST_CASE("BiquadFilter gracefully handles NaN and non-finite inputs", "[biquad]") {
+    BiquadFilter filter;
+    float nanVal = std::numeric_limits<float>::quiet_NaN();
+    float out = filter.process(nanVal);
+
+    // Should flush to zero without exploding
+    REQUIRE(out == 0.0f);
+    REQUIRE(filter.process(0.5f) != 0.0f);
+}
+

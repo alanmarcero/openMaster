@@ -39,20 +39,20 @@ void LinkwitzRiley4::updateCoefficients() noexcept {
     const double norm = 1.0 / (1.0 + sqrt2 * K + K2);
 
     // 2nd-order Butterworth LP coefficients
-    const float lpB0 = static_cast<float>(K2 * norm);
-    const float lpB1 = static_cast<float>(2.0 * lpB0);
-    const float lpB2 = lpB0;
-    const float a1 = static_cast<float>(2.0 * (K2 - 1.0) * norm);
-    const float a2 = static_cast<float>((1.0 - sqrt2 * K + K2) * norm);
+    const double lpB0 = K2 * norm;
+    const double lpB1 = 2.0 * lpB0;
+    const double lpB2 = lpB0;
+    const double a1 = 2.0 * (K2 - 1.0) * norm;
+    const double a2 = (1.0 - sqrt2 * K + K2) * norm;
 
     const BiquadCoeffs lpCoeffs { lpB0, lpB1, lpB2, a1, a2 };
     lp1_.setCoefficients(lpCoeffs);
     lp2_.setCoefficients(lpCoeffs);
 
     // 2nd-order Butterworth HP coefficients
-    const float hpB0 = static_cast<float>(norm);
-    const float hpB1 = static_cast<float>(-2.0 * norm);
-    const float hpB2 = static_cast<float>(norm);
+    const double hpB0 = norm;
+    const double hpB1 = -2.0 * norm;
+    const double hpB2 = norm;
 
     const BiquadCoeffs hpCoeffs { hpB0, hpB1, hpB2, a1, a2 };
     hp1_.setCoefficients(hpCoeffs);

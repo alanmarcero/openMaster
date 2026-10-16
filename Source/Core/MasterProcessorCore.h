@@ -63,7 +63,8 @@ public:
 private:
     double sampleRate_ = 44100.0;
     float masterGainDb_ = 0.0f;
-    float masterGainLinear_ = 1.0f;
+    float targetGainLinear_ = 1.0f;
+    float currentGainLinear_ = 1.0f;
     bool masterBypassed_ = false;
 
     MultiPoleFilter lowCut_{ FilterType::HighPass };

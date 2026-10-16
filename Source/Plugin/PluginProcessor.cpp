@@ -31,41 +31,41 @@ bool AnalogMasterProcessor::isBusesLayoutSupported(const BusesLayout& layouts) c
 void AnalogMasterProcessor::syncParameters() {
     using namespace analog_master::params;
 
-    // Low Cut
+    // 1. Low Cut
     const float lowCutFreq = *parameters.getRawParameterValue(kLowCutFreq);
     const int lowCutSlopeIdx = static_cast<int>(*parameters.getRawParameterValue(kLowCutSlope));
-    const bool lowCutBypass = *parameters.getRawParameterValue(kLowCutBypass) > 0.5f;
+    const bool lowCutIn = *parameters.getRawParameterValue(kLowCutIn) > 0.5f;
 
     core_.setLowCutFrequency(lowCutFreq);
     core_.setLowCutSlope(static_cast<analog_master::core::FilterSlope>(lowCutSlopeIdx));
-    core_.setLowCutBypassed(lowCutBypass);
+    core_.setLowCutBypassed(!lowCutIn);
 
-    // Stereo Field
+    // 2. Stereo Field
     const float stereoFreq = *parameters.getRawParameterValue(kStereoFreq);
     const float stereoWidth = *parameters.getRawParameterValue(kStereoWidth) / 100.0f; // 0..200% -> 0..2.0
-    const bool stereoBypass = *parameters.getRawParameterValue(kStereoBypass) > 0.5f;
+    const bool stereoIn = *parameters.getRawParameterValue(kStereoIn) > 0.5f;
     const bool stereoSolo = *parameters.getRawParameterValue(kStereoSoloLow) > 0.5f;
 
     core_.setStereoFieldFrequency(stereoFreq);
     core_.setStereoFieldWidth(stereoWidth);
-    core_.setStereoFieldBypassed(stereoBypass);
+    core_.setStereoFieldBypassed(!stereoIn);
     core_.setStereoFieldSoloLow(stereoSolo);
 
-    // High Cut
+    // 3. High Cut
     const float highCutFreq = *parameters.getRawParameterValue(kHighCutFreq);
     const int highCutSlopeIdx = static_cast<int>(*parameters.getRawParameterValue(kHighCutSlope));
-    const bool highCutBypass = *parameters.getRawParameterValue(kHighCutBypass) > 0.5f;
+    const bool highCutIn = *parameters.getRawParameterValue(kHighCutIn) > 0.5f;
 
     core_.setHighCutFrequency(highCutFreq);
     core_.setHighCutSlope(static_cast<analog_master::core::FilterSlope>(highCutSlopeIdx));
-    core_.setHighCutBypassed(highCutBypass);
+    core_.setHighCutBypassed(!highCutIn);
 
-    // Master
+    // 4. Master
     const float masterGain = *parameters.getRawParameterValue(kMasterGain);
-    const bool masterBypass = *parameters.getRawParameterValue(kMasterBypass) > 0.5f;
+    const bool masterPower = *parameters.getRawParameterValue(kMasterPower) > 0.5f;
 
     core_.setMasterGainDb(masterGain);
-    core_.setMasterBypassed(masterBypass);
+    core_.setMasterBypassed(!masterPower);
 }
 
 void AnalogMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& /*midi*/) {
@@ -98,14 +98,10 @@ void AnalogMasterProcessor::getStateInformation(juce::MemoryBlock& destination) 
 
 void AnalogMasterProcessor::setStateInformation(const void* data, int sizeInBytes) {
     if (auto xmlState = getXmlFromBinary(data, sizeInBytes)) {
-        if (xmlState->hasTagName(parameters.state.getType())) {
-            parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
-            syncParameters();
-        }
+        parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
     }
 }
 
-// JUCE Plugin entrypoint
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
     return new AnalogMasterProcessor();
 }

@@ -5,14 +5,14 @@
 namespace analog_master::core {
 
 struct BiquadCoeffs {
-    float b0 = 1.0f;
-    float b1 = 0.0f;
-    float b2 = 0.0f;
-    float a1 = 0.0f;
-    float a2 = 0.0f;
+    double b0 = 1.0;
+    double b1 = 0.0;
+    double b2 = 0.0;
+    double a1 = 0.0;
+    double a2 = 0.0;
 };
 
-// Transposed Direct Form II Biquad Section
+// Transposed Direct Form II Biquad Section with 64-bit double precision accumulation
 class BiquadFilter {
 public:
     BiquadFilter() = default;
@@ -22,20 +22,31 @@ public:
     }
 
     void reset() noexcept {
-        s1_ = 0.0f;
-        s2_ = 0.0f;
+        s1_ = 0.0;
+        s2_ = 0.0;
     }
 
     [[nodiscard]] float process(float sample) noexcept {
-        float out = coeffs_.b0 * sample + s1_;
-        s1_ = coeffs_.b1 * sample - coeffs_.a1 * out + s2_;
-        s2_ = coeffs_.b2 * sample - coeffs_.a2 * out;
-        
+        // Sanitize non-finite inputs (NaN / Inf protection)
+        if (!std::isfinite(sample)) {
+            reset();
+            return 0.0f;
+        }
+
+        const double in = static_cast<double>(sample);
+        const double out = coeffs_.b0 * in + s1_;
+        s1_ = coeffs_.b1 * in - coeffs_.a1 * out + s2_;
+        s2_ = coeffs_.b2 * in - coeffs_.a2 * out;
+
         // Prevent denormals
-        if (std::abs(s1_) < 1e-15f) s1_ = 0.0f;
-        if (std::abs(s2_) < 1e-15f) s2_ = 0.0f;
-        
-        return out;
+        if (std::abs(s1_) < 1e-25) {
+            s1_ = 0.0;
+        }
+        if (std::abs(s2_) < 1e-25) {
+            s2_ = 0.0;
+        }
+
+        return static_cast<float>(out);
     }
 
     [[nodiscard]] const BiquadCoeffs& coefficients() const noexcept {
@@ -44,8 +55,8 @@ public:
 
 private:
     BiquadCoeffs coeffs_{};
-    float s1_ = 0.0f;
-    float s2_ = 0.0f;
+    double s1_ = 0.0;
+    double s2_ = 0.0;
 };
 
 } // namespace analog_master::core

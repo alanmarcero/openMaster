@@ -17,7 +17,7 @@ public:
     void setSoloLow(bool solo) noexcept;
 
     [[nodiscard]] double crossoverFrequency() const noexcept { return crossoverHz_; }
-    [[nodiscard]] float width() const noexcept { return width_; }
+    [[nodiscard]] float width() const noexcept { return targetWidth_; }
     [[nodiscard]] bool isBypassed() const noexcept { return bypassed_; }
     [[nodiscard]] bool isSoloLow() const noexcept { return soloLow_; }
 
@@ -26,7 +26,8 @@ public:
 
 private:
     double crossoverHz_ = 120.0;
-    float width_ = 0.0f; // Default 0.0 = Mono low-end (mastering classic)
+    float targetWidth_ = 0.0f; // Default 0.0 = Mono low-end (mastering classic)
+    float currentWidth_ = 0.0f;
     bool bypassed_ = false;
     bool soloLow_ = false;
 
