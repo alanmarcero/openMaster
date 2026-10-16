@@ -13,6 +13,16 @@
 
 ---
 
+## Screenshots
+
+### Main Interface in DAW
+![Analog Master Strip UI](assets/screenshot_ui.jpg)
+
+### Analog Hardware Detailing
+![Analog Hardware Detail](assets/screenshot_hardware_detail.jpg)
+
+---
+
 ## Capabilities
 
 ### 1. Ultra-Steep Low Cut EQ
@@ -67,8 +77,10 @@ analog-master-vst/
 │   └── workflows/
 │       └── build.yml             # macOS Universal + Windows CI, pluginval, artifact packaging
 ├── assets/
-│   ├── banner.jpg                # Photorealistic 16:9 hero image
-│   └── icon.jpg                  # High-resolution plugin icon
+│   ├── banner.jpg                # Photorealistic 16:9 hero banner
+│   ├── icon.jpg                  # High-resolution plugin icon
+│   ├── screenshot_ui.jpg         # Full UI screenshot
+│   └── screenshot_hardware_detail.jpg # Hardware controls detail shot
 ├── Source/
 │   ├── Core/                     # Pure C++20 DSP engine (zero GUI dependencies)
 │   │   ├── BiquadFilter.h/.cpp
