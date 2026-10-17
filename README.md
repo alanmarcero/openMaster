@@ -13,12 +13,21 @@
 
 ---
 
-## Screenshots & Faceplate Looks
+## Cyberpunk UI Redesign & 5 Selectable Cyber Themes
 
-The interface includes a real-time **LOOK** selector in the top header, allowing instant switching between 4 authentic vintage studio aesthetics:
+The interface has been completely redesigned with a **Cyberpunk Mastering HUD** aesthetic featuring an embedded custom Alan Marcero emblem, carbon-titanium PCB circuit-trace chassis backdrop (`assets/cyber_chassis_backdrop.jpg`), dual-color neon LED rotary value arcs, illuminated tactile pad switches, and holographic OLED ballistic VU meters.
 
-### 1. Classic Charcoal & Warm Gold (Default)
-*Brushed dark charcoal faceplate, spun brass knobs, warm amber jewel lamps, and vintage parchment VU meters.*
+Use the real-time **THEME** selector in the top header to switch between **5 Cyberpunk Themes**:
+1. **Cyber Neon (Default):** Electric cyan (`#00F0FF`) and neon magenta (`#FF2A85`) LED arcs over deep carbon-obsidian chassis.
+2. **Chrome Deck:** Brushed liquid-chrome titanium with ice-cyan and solar-amber telemetry accents.
+3. **Acid Bio-Grid:** Matrix phosphor green (`#29FF70`) and acid lime (`#D4FF28`) bio-circuit HUD.
+4. **Deep Net Ice:** Cryogenic ultraviolet (`#9D7AFF`) and ice-blue (`#5CE1FF`) neural grid.
+5. **Solar Overdrive:** High-voltage molten amber (`#FF9D1C`) and crimson plasma (`#FF2A55`) overdrive aesthetic.
+
+### Cyber Neon Mastering Console (New Default UI)
+![Cyberpunk Mastering UI](assets/gui_cyberpunk.jpg)
+
+### Classic Heritage Themes Gallery
 ![Classic Charcoal UI](assets/gui_master.png)
 
 ### 2. Studio Silverface Edition

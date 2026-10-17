@@ -23,7 +23,7 @@ private:
     float needleVelR_ = 0.0f;
     float clipAmountL_ = 0.0f;
     float clipAmountR_ = 0.0f;
-    ThemePalette palette_ { AnalogLookAndFeel::createPalette(Theme::ClassicCharcoal) };
+    ThemePalette palette_ { AnalogLookAndFeel::createPalette(Theme::CyberNeon) };
 };
 
 } // namespace analog_master::ui

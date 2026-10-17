@@ -124,19 +124,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         true // Power ON by default
     ));
 
-    // 5. Visual Faceplate Theme (4 Looks)
+    // 5. Visual Faceplate Theme (5 Cyberpunk Looks)
     const juce::StringArray themeChoices {
-        "Classic Charcoal",
-        "Silverface",
-        "British Console",
-        "Midnight Slate"
+        "Cyber Neon",
+        "Chrome Deck",
+        "Acid Bio-Grid",
+        "Deep Net Ice",
+        "Solar Overdrive"
     };
 
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{ kTheme, 1 },
         "Faceplate Theme",
         themeChoices,
-        0 // Default to Classic Charcoal
+        0 // Default to Cyber Neon
     ));
 
     return layout;

@@ -4,15 +4,16 @@
 
 namespace analog_master::ui {
 
-enum class Theme {
-    ClassicCharcoal = 0,
-    Silverface = 1,
-    BritishConsole = 2,
-    MidnightSlate = 3
+enum class Theme : int {
+    CyberNeon = 0,
+    ChromeDeck = 1,
+    AcidBioGrid = 2,
+    DeepNetIce = 3,
+    SolarOverdrive = 4
 };
 
 struct ThemePalette {
-    // Faceplate panel gradients
+    // Faceplate panel gradients & cyber HUD grid
     juce::Colour panelGradTop;
     juce::Colour panelGradMid1;
     juce::Colour panelGradMid2;
@@ -21,7 +22,12 @@ struct ThemePalette {
     juce::Colour panelBorder;
     juce::Colour panelInnerBorder;
 
-    // Screws
+    // Cyber Neon Accents
+    juce::Colour accentPrimary;
+    juce::Colour accentSecondary;
+    juce::Colour hudGrid;
+
+    // Screws / Hex Bolts
     juce::Colour screwTop;
     juce::Colour screwBottom;
     juce::Colour screwBorder;
@@ -33,7 +39,7 @@ struct ThemePalette {
     juce::Colour headerSub;
     juce::Colour headerDivider;
 
-    // Sections
+    // Sections / Cyber Cards
     juce::Colour sectionWellBg;
     juce::Colour sectionBorder;
     juce::Colour sectionHeaderPlate;
@@ -83,7 +89,7 @@ struct ThemePalette {
     juce::Colour popupHighlightBg;
     juce::Colour popupHighlightText;
 
-    // Vintage VU Meter
+    // Holographic Cyber VU Meter
     juce::Colour meterFrameBg;
     juce::Colour meterFrameBorder;
     juce::Colour meterFaceTop;
@@ -138,7 +144,7 @@ public:
     static ThemePalette createPalette(Theme theme);
 
 private:
-    Theme theme_ { Theme::ClassicCharcoal };
+    Theme theme_ { Theme::CyberNeon };
     ThemePalette palette_;
 };
 

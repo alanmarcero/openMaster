@@ -5,6 +5,10 @@ project(AnalogMasterStrip VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 option(AMS_BUILD_PLUGIN "Build the VST3 plugin" ON)
 option(AMS_BUILD_TESTS "Build the unit tests" ON)
 
@@ -27,6 +31,12 @@ if(AMS_BUILD_PLUGIN)
         GIT_TAG 8.0.9
         GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(juce)
+
+    juce_add_binary_data(AnalogMasterAssets
+        SOURCES
+            assets/alan_marcero_logo.jpg
+            assets/cyber_chassis_backdrop.jpg)
+    set_target_properties(AnalogMasterAssets PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
     juce_add_plugin(AnalogMasterStrip
         COMPANY_NAME "Alan Marcero"
@@ -62,6 +72,7 @@ if(AMS_BUILD_PLUGIN)
     target_link_libraries(AnalogMasterStrip
         PRIVATE
             analog_master_core
+            AnalogMasterAssets
             juce::juce_audio_processors
             juce::juce_audio_utils
             juce::juce_gui_basics

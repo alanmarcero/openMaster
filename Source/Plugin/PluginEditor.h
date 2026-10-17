@@ -23,11 +23,15 @@ private:
     AnalogMasterProcessor& processor_;
     analog_master::ui::AnalogLookAndFeel lookAndFeel_;
 
+    // Embedded Gemini-generated Custom Logo & Cyberpunk Chassis Backdrop
+    juce::Image customLogoImage_;
+    juce::Image backdropImage_;
+
     // Header Look / Theme Selector
     juce::ComboBox themeBox_;
     juce::Label themeLabel_{ {}, "LOOK" };
 
-    // UI Controls
+    // UI Controls (Same controls, completely redesigned Cyberpunk UI)
     // 1. Low Cut
     juce::Slider lowCutFreqSlider_;
     juce::ComboBox lowCutSlopeBox_;

@@ -1,4 +1,5 @@
 #include "AnalogLookAndFeel.h"
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 
@@ -7,309 +8,405 @@ namespace analog_master::ui {
 ThemePalette AnalogLookAndFeel::createPalette(Theme theme) {
     ThemePalette p;
     switch (theme) {
-        case Theme::Silverface: {
-            p.panelGradTop = juce::Colour(0xffd8dce2);
-            p.panelGradMid1 = juce::Colour(0xffe4e8ee);
-            p.panelGradMid2 = juce::Colour(0xffcdd2d8);
-            p.panelGradBottom = juce::Colour(0xffbec3ca);
-            p.panelStripe = juce::Colour(0x18ffffff);
-            p.panelBorder = juce::Colour(0xff8c929a);
-            p.panelInnerBorder = juce::Colour(0x66ffffff);
+        case Theme::ChromeDeck: {
+            p.panelGradTop = juce::Colour(0xff232a36);
+            p.panelGradMid1 = juce::Colour(0xff2b3444);
+            p.panelGradMid2 = juce::Colour(0xff19202b);
+            p.panelGradBottom = juce::Colour(0xff10151e);
+            p.panelStripe = juce::Colour(0x14ffffff);
+            p.panelBorder = juce::Colour(0xff6b82a6);
+            p.panelInnerBorder = juce::Colour(0x55a8c4eb);
 
-            p.screwTop = juce::Colour(0xffb0b5bc);
-            p.screwBottom = juce::Colour(0xff686d75);
-            p.screwBorder = juce::Colour(0xffe8ecf0);
-            p.screwSlot = juce::Colour(0xff2a2e33);
+            p.accentPrimary = juce::Colour(0xff38e8ff);
+            p.accentSecondary = juce::Colour(0xffffb428);
+            p.hudGrid = juce::Colour(0x1e38e8ff);
 
-            p.headerBrand = juce::Colour(0xff162230);
-            p.headerTitle = juce::Colour(0xff0e1722);
-            p.headerSub = juce::Colour(0xff3a4858);
-            p.headerDivider = juce::Colour(0x44162230);
+            p.screwTop = juce::Colour(0xff9eb0c9);
+            p.screwBottom = juce::Colour(0xff3d4a5d);
+            p.screwBorder = juce::Colour(0xffd0e0f5);
+            p.screwSlot = juce::Colour(0xff131922);
 
-            p.sectionWellBg = juce::Colour(0x14000000);
-            p.sectionBorder = juce::Colour(0xff8a929c);
-            p.sectionHeaderPlate = juce::Colour(0x221a2430);
-            p.sectionTitleText = juce::Colour(0xff162230);
-            p.labelText = juce::Colour(0xff1e2a38);
+            p.headerBrand = juce::Colour(0xff38e8ff);
+            p.headerTitle = juce::Colour(0xfff4f9ff);
+            p.headerSub = juce::Colour(0xff9eb6d4);
+            p.headerDivider = juce::Colour(0x7738e8ff);
 
-            p.knobTick = juce::Colour(0xcc1e2a38);
-            p.knobDropShadow = juce::Colour(0x44000000);
-            p.knobCollarTop = juce::Colour(0xffe4e8ec);
-            p.knobCollarMid = juce::Colour(0xffbcc3cb);
-            p.knobCollarBottom = juce::Colour(0xff949ba4);
-            p.knobCollarBorder = juce::Colour(0xff68707a);
-            p.knobCoreTop = juce::Colour(0xff343a42);
-            p.knobCoreMid1 = juce::Colour(0xff4a525e);
-            p.knobCoreMid2 = juce::Colour(0xff22262c);
-            p.knobCoreBottom = juce::Colour(0xff14161a);
-            p.knobCoreBorder = juce::Colour(0xff7a8490);
-            p.knobPointer = juce::Colour(0xff00d4ff);
-            p.knobPointerShadow = juce::Colour(0x99000000);
+            p.sectionWellBg = juce::Colour(0xd8141a24);
+            p.sectionBorder = juce::Colour(0xff4c6282);
+            p.sectionHeaderPlate = juce::Colour(0xff1e2736);
+            p.sectionTitleText = juce::Colour(0xff38e8ff);
+            p.labelText = juce::Colour(0xffd6e6fa);
 
-            p.switchPlateBg = juce::Colour(0xffc8ccd2);
-            p.switchPlateBorder = juce::Colour(0xff7a828c);
-            p.switchSlotBg = juce::Colour(0xff202428);
-            p.switchLeverTop = juce::Colour(0xffffffff);
-            p.switchLeverBottom = juce::Colour(0xff8a9098);
-            p.switchLeverBorder = juce::Colour(0xff555c64);
-            p.switchActiveText = juce::Colour(0xff0e1722);
-            p.switchInactiveText = juce::Colour(0xff6a7480);
-
-            p.jewelBezelBg = juce::Colour(0xff889098);
-            p.jewelBezelBorder = juce::Colour(0xffffffff);
-            p.jewelHalo = juce::Colour(0x440088ff);
-            p.jewelCoreOn = juce::Colour(0xffd6f0ff);
-            p.jewelEdgeOn = juce::Colour(0xff0066ee);
-            p.jewelCoreOff = juce::Colour(0xff0b1828);
-            p.jewelEdgeOff = juce::Colour(0xff040a12);
-
-            p.comboBg = juce::Colour(0xffe0e4ea);
-            p.comboBorder = juce::Colour(0xff8a929c);
-            p.comboText = juce::Colour(0xff162230);
-            p.comboArrow = juce::Colour(0xff1e2a38);
-            p.popupBg = juce::Colour(0xffe8ecf2);
-            p.popupHighlightBg = juce::Colour(0xffccd4de);
-            p.popupHighlightText = juce::Colour(0xff0e1722);
-
-            p.meterFrameBg = juce::Colour(0xff1e2228);
-            p.meterFrameBorder = juce::Colour(0xff8a929c);
-            p.meterFaceTop = juce::Colour(0xfff5f8fa);
-            p.meterFaceMid = juce::Colour(0xffe4eaef);
-            p.meterFaceBottom = juce::Colour(0xffd2d8e0);
-            p.meterFaceShadow = juce::Colour(0x22000000);
-            p.meterScaleText = juce::Colour(0xff141820);
-            p.meterRedZone = juce::Colour(0xffcc2222);
-            p.meterNeedle = juce::Colour(0xff0e141c);
-            p.meterNeedleGlow = juce::Colour(0x440088ff);
-            break;
-        }
-        case Theme::BritishConsole: {
-            p.panelGradTop = juce::Colour(0xff1a3024);
-            p.panelGradMid1 = juce::Colour(0xff223d2e);
-            p.panelGradMid2 = juce::Colour(0xff16281e);
-            p.panelGradBottom = juce::Colour(0xff0d1812);
-            p.panelStripe = juce::Colour(0x0a000000);
-            p.panelBorder = juce::Colour(0xff8a7538);
-            p.panelInnerBorder = juce::Colour(0xff09100c);
-
-            p.screwTop = juce::Colour(0xffc8a855);
-            p.screwBottom = juce::Colour(0xff58441c);
-            p.screwBorder = juce::Colour(0xffdfc477);
-            p.screwSlot = juce::Colour(0xff181006);
-
-            p.headerBrand = juce::Colour(0xfff2e6c8);
-            p.headerTitle = juce::Colour(0xffe8d8b0);
-            p.headerSub = juce::Colour(0xffa8b8a0);
-            p.headerDivider = juce::Colour(0x55d4b870);
-
-            p.sectionWellBg = juce::Colour(0x38000000);
-            p.sectionBorder = juce::Colour(0xff4c6850);
-            p.sectionHeaderPlate = juce::Colour(0x660a140e);
-            p.sectionTitleText = juce::Colour(0xffe8d8b0);
-            p.labelText = juce::Colour(0xffeddcb4);
-
-            p.knobTick = juce::Colour(0xbbe8d8b0);
-            p.knobDropShadow = juce::Colour(0x66000000);
-            p.knobCollarTop = juce::Colour(0xffc8a855);
-            p.knobCollarMid = juce::Colour(0xff8a6e30);
-            p.knobCollarBottom = juce::Colour(0xff5c4820);
-            p.knobCollarBorder = juce::Colour(0xffa08238);
-            p.knobCoreTop = juce::Colour(0xffdfc477);
-            p.knobCoreMid1 = juce::Colour(0xfffaecc0);
-            p.knobCoreMid2 = juce::Colour(0xffa8883e);
-            p.knobCoreBottom = juce::Colour(0xff7a5c24);
-            p.knobCoreBorder = juce::Colour(0xff503c14);
-            p.knobPointer = juce::Colour(0xfffff8e8);
-            p.knobPointerShadow = juce::Colour(0xbb181006);
-
-            p.switchPlateBg = juce::Colour(0xff102016);
-            p.switchPlateBorder = juce::Colour(0xff6a8060);
-            p.switchSlotBg = juce::Colour(0xff080e0a);
-            p.switchLeverTop = juce::Colour(0xffe0c880);
-            p.switchLeverBottom = juce::Colour(0xff786028);
-            p.switchLeverBorder = juce::Colour(0xffa89050);
-            p.switchActiveText = juce::Colour(0xfff2e6c8);
-            p.switchInactiveText = juce::Colour(0xff788c7c);
-
-            p.jewelBezelBg = juce::Colour(0xff6a5830);
-            p.jewelBezelBorder = juce::Colour(0xffa89050);
-            p.jewelHalo = juce::Colour(0x55ff2233);
-            p.jewelCoreOn = juce::Colour(0xffffd0d4);
-            p.jewelEdgeOn = juce::Colour(0xffee1122);
-            p.jewelCoreOff = juce::Colour(0xff38080c);
-            p.jewelEdgeOff = juce::Colour(0xff160305);
-
-            p.comboBg = juce::Colour(0xff122218);
-            p.comboBorder = juce::Colour(0xff5c7860);
-            p.comboText = juce::Colour(0xfff2e6c8);
-            p.comboArrow = juce::Colour(0xffdfc477);
-            p.popupBg = juce::Colour(0xff0e1c14);
-            p.popupHighlightBg = juce::Colour(0xff244430);
-            p.popupHighlightText = juce::Colour(0xffffffff);
-
-            p.meterFrameBg = juce::Colour(0xff0c1610);
-            p.meterFrameBorder = juce::Colour(0xff7a6530);
-            p.meterFaceTop = juce::Colour(0xfff9f5e8);
-            p.meterFaceMid = juce::Colour(0xffede3cc);
-            p.meterFaceBottom = juce::Colour(0xffded2b4);
-            p.meterFaceShadow = juce::Colour(0x33000000);
-            p.meterScaleText = juce::Colour(0xff201a12);
-            p.meterRedZone = juce::Colour(0xffb81e1e);
-            p.meterNeedle = juce::Colour(0xff201608);
-            p.meterNeedleGlow = juce::Colour(0x44ff2233);
-            break;
-        }
-        case Theme::MidnightSlate: {
-            p.panelGradTop = juce::Colour(0xff131a26);
-            p.panelGradMid1 = juce::Colour(0xff1a2434);
-            p.panelGradMid2 = juce::Colour(0xff111722);
-            p.panelGradBottom = juce::Colour(0xff0a0d14);
-            p.panelStripe = juce::Colour(0x0cffffff);
-            p.panelBorder = juce::Colour(0xff2e3d54);
-            p.panelInnerBorder = juce::Colour(0xff080b10);
-
-            p.screwTop = juce::Colour(0xff485466);
-            p.screwBottom = juce::Colour(0xff1c222c);
-            p.screwBorder = juce::Colour(0xff6c7d96);
-            p.screwSlot = juce::Colour(0xff0b0e14);
-
-            p.headerBrand = juce::Colour(0xff60d0ff);
-            p.headerTitle = juce::Colour(0xffe4f4ff);
-            p.headerSub = juce::Colour(0xff82a4c4);
-            p.headerDivider = juce::Colour(0x5530a8df);
-
-            p.sectionWellBg = juce::Colour(0x35000000);
-            p.sectionBorder = juce::Colour(0xff283850);
-            p.sectionHeaderPlate = juce::Colour(0x66080e18);
-            p.sectionTitleText = juce::Colour(0xff60d0ff);
-            p.labelText = juce::Colour(0xffb8dcf4);
-
-            p.knobTick = juce::Colour(0xaa50c4f8);
-            p.knobDropShadow = juce::Colour(0x77000000);
-            p.knobCollarTop = juce::Colour(0xff283240);
-            p.knobCollarMid = juce::Colour(0xff1c2430);
-            p.knobCollarBottom = juce::Colour(0xff10141c);
-            p.knobCollarBorder = juce::Colour(0xff3d4a5e);
-            p.knobCoreTop = juce::Colour(0xff2a3444);
-            p.knobCoreMid1 = juce::Colour(0xff3e4c62);
-            p.knobCoreMid2 = juce::Colour(0xff202836);
-            p.knobCoreBottom = juce::Colour(0xff141a24);
-            p.knobCoreBorder = juce::Colour(0xff35455d);
-            p.knobPointer = juce::Colour(0xff00f0ff);
+            p.knobTick = juce::Colour(0xcc9eb6d4);
+            p.knobDropShadow = juce::Colour(0x88000000);
+            p.knobCollarTop = juce::Colour(0xff52627a);
+            p.knobCollarMid = juce::Colour(0xff384558);
+            p.knobCollarBottom = juce::Colour(0xff1d2530);
+            p.knobCollarBorder = juce::Colour(0xff849bb8);
+            p.knobCoreTop = juce::Colour(0xff344052);
+            p.knobCoreMid1 = juce::Colour(0xff46566e);
+            p.knobCoreMid2 = juce::Colour(0xff232c3b);
+            p.knobCoreBottom = juce::Colour(0xff141923);
+            p.knobCoreBorder = juce::Colour(0xff38e8ff);
+            p.knobPointer = juce::Colour(0xfff5fbff);
             p.knobPointerShadow = juce::Colour(0xaa000000);
 
-            p.switchPlateBg = juce::Colour(0xff0f1520);
-            p.switchPlateBorder = juce::Colour(0xff2e405a);
-            p.switchSlotBg = juce::Colour(0xff06090e);
-            p.switchLeverTop = juce::Colour(0xffbcc8d8);
-            p.switchLeverBottom = juce::Colour(0xff4c586a);
-            p.switchLeverBorder = juce::Colour(0xff2c3848);
-            p.switchActiveText = juce::Colour(0xff70d8ff);
-            p.switchInactiveText = juce::Colour(0xff506880);
+            p.switchPlateBg = juce::Colour(0xff161d29);
+            p.switchPlateBorder = juce::Colour(0xff4a6080);
+            p.switchSlotBg = juce::Colour(0xff0b0f16);
+            p.switchLeverTop = juce::Colour(0xffe0eeff);
+            p.switchLeverBottom = juce::Colour(0xff6b82a4);
+            p.switchLeverBorder = juce::Colour(0xff38e8ff);
+            p.switchActiveText = juce::Colour(0xfff4f9ff);
+            p.switchInactiveText = juce::Colour(0xff7d93b0);
 
-            p.jewelBezelBg = juce::Colour(0xff283446);
-            p.jewelBezelBorder = juce::Colour(0xff506888);
-            p.jewelHalo = juce::Colour(0x5500f0ff);
-            p.jewelCoreOn = juce::Colour(0xffe0ffff);
-            p.jewelEdgeOn = juce::Colour(0xff00c8e8);
-            p.jewelCoreOff = juce::Colour(0xff06202c);
-            p.jewelEdgeOff = juce::Colour(0xff020d12);
+            p.jewelBezelBg = juce::Colour(0xff344256);
+            p.jewelBezelBorder = juce::Colour(0xff849bb8);
+            p.jewelHalo = juce::Colour(0x6638e8ff);
+            p.jewelCoreOn = juce::Colour(0xffe8ffff);
+            p.jewelEdgeOn = juce::Colour(0xff00b8ff);
+            p.jewelCoreOff = juce::Colour(0xff0b2030);
+            p.jewelEdgeOff = juce::Colour(0xff050e16);
 
-            p.comboBg = juce::Colour(0xff111824);
-            p.comboBorder = juce::Colour(0xff2c3e56);
-            p.comboText = juce::Colour(0xffe4f4ff);
-            p.comboArrow = juce::Colour(0xff60d0ff);
-            p.popupBg = juce::Colour(0xff0d141e);
-            p.popupHighlightBg = juce::Colour(0xff1c2c40);
-            p.popupHighlightText = juce::Colour(0xff00f0ff);
+            p.comboBg = juce::Colour(0xff18202e);
+            p.comboBorder = juce::Colour(0xff4c6282);
+            p.comboText = juce::Colour(0xfff0f7ff);
+            p.comboArrow = juce::Colour(0xff38e8ff);
+            p.popupBg = juce::Colour(0xff141b26);
+            p.popupHighlightBg = juce::Colour(0xff2a3950);
+            p.popupHighlightText = juce::Colour(0xff38e8ff);
 
-            p.meterFrameBg = juce::Colour(0xff0a0d14);
-            p.meterFrameBorder = juce::Colour(0xff283850);
-            p.meterFaceTop = juce::Colour(0xffe2f4ff);
-            p.meterFaceMid = juce::Colour(0xffbcdff5);
-            p.meterFaceBottom = juce::Colour(0xff94ccee);
-            p.meterFaceShadow = juce::Colour(0x33000000);
-            p.meterScaleText = juce::Colour(0xff0a1c2c);
-            p.meterRedZone = juce::Colour(0xffee2844);
-            p.meterNeedle = juce::Colour(0xff081420);
-            p.meterNeedleGlow = juce::Colour(0x4400f0ff);
+            p.meterFrameBg = juce::Colour(0xff0d121a);
+            p.meterFrameBorder = juce::Colour(0xff4c6282);
+            p.meterFaceTop = juce::Colour(0xff182232);
+            p.meterFaceMid = juce::Colour(0xff111926);
+            p.meterFaceBottom = juce::Colour(0xff0a0f18);
+            p.meterFaceShadow = juce::Colour(0x66000000);
+            p.meterScaleText = juce::Colour(0xff9eb6d4);
+            p.meterRedZone = juce::Colour(0xffff3860);
+            p.meterNeedle = juce::Colour(0xff38e8ff);
+            p.meterNeedleGlow = juce::Colour(0x6638e8ff);
             break;
         }
-        case Theme::ClassicCharcoal:
+        case Theme::AcidBioGrid: {
+            p.panelGradTop = juce::Colour(0xff0d1711);
+            p.panelGradMid1 = juce::Colour(0xff122118);
+            p.panelGradMid2 = juce::Colour(0xff0a130e);
+            p.panelGradBottom = juce::Colour(0xff050a07);
+            p.panelStripe = juce::Colour(0x0c29ff70);
+            p.panelBorder = juce::Colour(0xff265c3a);
+            p.panelInnerBorder = juce::Colour(0x4429ff70);
+
+            p.accentPrimary = juce::Colour(0xff29ff70);
+            p.accentSecondary = juce::Colour(0xffd4ff28);
+            p.hudGrid = juce::Colour(0x1c29ff70);
+
+            p.screwTop = juce::Colour(0xff3d6b4c);
+            p.screwBottom = juce::Colour(0xff16291c);
+            p.screwBorder = juce::Colour(0xff5ca372);
+            p.screwSlot = juce::Colour(0xff060c08);
+
+            p.headerBrand = juce::Colour(0xff29ff70);
+            p.headerTitle = juce::Colour(0xffe8ffee);
+            p.headerSub = juce::Colour(0xff7ec492);
+            p.headerDivider = juce::Colour(0x7729ff70);
+
+            p.sectionWellBg = juce::Colour(0xd80b140e);
+            p.sectionBorder = juce::Colour(0xff255235);
+            p.sectionHeaderPlate = juce::Colour(0xff122418);
+            p.sectionTitleText = juce::Colour(0xff29ff70);
+            p.labelText = juce::Colour(0xffc8fad6);
+
+            p.knobTick = juce::Colour(0xbb7ec492);
+            p.knobDropShadow = juce::Colour(0x88000000);
+            p.knobCollarTop = juce::Colour(0xff243d2c);
+            p.knobCollarMid = juce::Colour(0xff182b1e);
+            p.knobCollarBottom = juce::Colour(0xff0d1710);
+            p.knobCollarBorder = juce::Colour(0xff386e4a);
+            p.knobCoreTop = juce::Colour(0xff1d3324);
+            p.knobCoreMid1 = juce::Colour(0xff284732);
+            p.knobCoreMid2 = juce::Colour(0xff132218);
+            p.knobCoreBottom = juce::Colour(0xff0a130d);
+            p.knobCoreBorder = juce::Colour(0xff29ff70);
+            p.knobPointer = juce::Colour(0xffeafff0);
+            p.knobPointerShadow = juce::Colour(0xbb000000);
+
+            p.switchPlateBg = juce::Colour(0xff0d1a12);
+            p.switchPlateBorder = juce::Colour(0xff2d6340);
+            p.switchSlotBg = juce::Colour(0xff050b07);
+            p.switchLeverTop = juce::Colour(0xffb8ffd0);
+            p.switchLeverBottom = juce::Colour(0xff29a854);
+            p.switchLeverBorder = juce::Colour(0xff29ff70);
+            p.switchActiveText = juce::Colour(0xffe8ffee);
+            p.switchInactiveText = juce::Colour(0xff5e9470);
+
+            p.jewelBezelBg = juce::Colour(0xff1d3826);
+            p.jewelBezelBorder = juce::Colour(0xff468259);
+            p.jewelHalo = juce::Colour(0x6629ff70);
+            p.jewelCoreOn = juce::Colour(0xffe6ffed);
+            p.jewelEdgeOn = juce::Colour(0xff00e650);
+            p.jewelCoreOff = juce::Colour(0xff092612);
+            p.jewelEdgeOff = juce::Colour(0xff031007);
+
+            p.comboBg = juce::Colour(0xff0f1e14);
+            p.comboBorder = juce::Colour(0xff2b5e3d);
+            p.comboText = juce::Colour(0xffe6ffed);
+            p.comboArrow = juce::Colour(0xff29ff70);
+            p.popupBg = juce::Colour(0xff0b160f);
+            p.popupHighlightBg = juce::Colour(0xff1b3b26);
+            p.popupHighlightText = juce::Colour(0xff29ff70);
+
+            p.meterFrameBg = juce::Colour(0xff070e09);
+            p.meterFrameBorder = juce::Colour(0xff28593a);
+            p.meterFaceTop = juce::Colour(0xff112217);
+            p.meterFaceMid = juce::Colour(0xff0b1710);
+            p.meterFaceBottom = juce::Colour(0xff060d09);
+            p.meterFaceShadow = juce::Colour(0x66000000);
+            p.meterScaleText = juce::Colour(0xff84cc98);
+            p.meterRedZone = juce::Colour(0xffffc828);
+            p.meterNeedle = juce::Colour(0xff29ff70);
+            p.meterNeedleGlow = juce::Colour(0x6629ff70);
+            break;
+        }
+        case Theme::DeepNetIce: {
+            p.panelGradTop = juce::Colour(0xff121829);
+            p.panelGradMid1 = juce::Colour(0xff172036);
+            p.panelGradMid2 = juce::Colour(0xff0e1424);
+            p.panelGradBottom = juce::Colour(0xff080b14);
+            p.panelStripe = juce::Colour(0x0c66d9ff);
+            p.panelBorder = juce::Colour(0xff384d78);
+            p.panelInnerBorder = juce::Colour(0x4466d9ff);
+
+            p.accentPrimary = juce::Colour(0xff5ce1ff);
+            p.accentSecondary = juce::Colour(0xff9d7aff);
+            p.hudGrid = juce::Colour(0x1c5ce1ff);
+
+            p.screwTop = juce::Colour(0xff4a5e85);
+            p.screwBottom = juce::Colour(0xff1c2538);
+            p.screwBorder = juce::Colour(0xff7590c2);
+            p.screwSlot = juce::Colour(0xff090d16);
+
+            p.headerBrand = juce::Colour(0xff5ce1ff);
+            p.headerTitle = juce::Colour(0xfff0f8ff);
+            p.headerSub = juce::Colour(0xff8ca8d4);
+            p.headerDivider = juce::Colour(0x775ce1ff);
+
+            p.sectionWellBg = juce::Colour(0xd80d1322);
+            p.sectionBorder = juce::Colour(0xff2e426b);
+            p.sectionHeaderPlate = juce::Colour(0xff162038);
+            p.sectionTitleText = juce::Colour(0xff5ce1ff);
+            p.labelText = juce::Colour(0xffd0e8ff);
+
+            p.knobTick = juce::Colour(0xbb8ca8d4);
+            p.knobDropShadow = juce::Colour(0x88000000);
+            p.knobCollarTop = juce::Colour(0xff2a3854);
+            p.knobCollarMid = juce::Colour(0xff1e283d);
+            p.knobCollarBottom = juce::Colour(0xff101624);
+            p.knobCollarBorder = juce::Colour(0xff465c87);
+            p.knobCoreTop = juce::Colour(0xff222e47);
+            p.knobCoreMid1 = juce::Colour(0xff304061);
+            p.knobCoreMid2 = juce::Colour(0xff182033);
+            p.knobCoreBottom = juce::Colour(0xff0e1320);
+            p.knobCoreBorder = juce::Colour(0xff5ce1ff);
+            p.knobPointer = juce::Colour(0xfff2fbff);
+            p.knobPointerShadow = juce::Colour(0xbb000000);
+
+            p.switchPlateBg = juce::Colour(0xff101729);
+            p.switchPlateBorder = juce::Colour(0xff364e7d);
+            p.switchSlotBg = juce::Colour(0xff070a12);
+            p.switchLeverTop = juce::Colour(0xffd8f4ff);
+            p.switchLeverBottom = juce::Colour(0xff4888b8);
+            p.switchLeverBorder = juce::Colour(0xff5ce1ff);
+            p.switchActiveText = juce::Colour(0xfff0f8ff);
+            p.switchInactiveText = juce::Colour(0xff6880a6);
+
+            p.jewelBezelBg = juce::Colour(0xff24324f);
+            p.jewelBezelBorder = juce::Colour(0xff5672a3);
+            p.jewelHalo = juce::Colour(0x665ce1ff);
+            p.jewelCoreOn = juce::Colour(0xffe8fbff);
+            p.jewelEdgeOn = juce::Colour(0xff28b8ff);
+            p.jewelCoreOff = juce::Colour(0xff0a1e33);
+            p.jewelEdgeOff = juce::Colour(0xff040c17);
+
+            p.comboBg = juce::Colour(0xff121b2e);
+            p.comboBorder = juce::Colour(0xff354c78);
+            p.comboText = juce::Colour(0xfff0f8ff);
+            p.comboArrow = juce::Colour(0xff5ce1ff);
+            p.popupBg = juce::Colour(0xff0d1424);
+            p.popupHighlightBg = juce::Colour(0xff1f2f4d);
+            p.popupHighlightText = juce::Colour(0xff5ce1ff);
+
+            p.meterFrameBg = juce::Colour(0xff090d18);
+            p.meterFrameBorder = juce::Colour(0xff324873);
+            p.meterFaceTop = juce::Colour(0xff141e36);
+            p.meterFaceMid = juce::Colour(0xff0e1526);
+            p.meterFaceBottom = juce::Colour(0xff080c18);
+            p.meterFaceShadow = juce::Colour(0x66000000);
+            p.meterScaleText = juce::Colour(0xff94b4e0);
+            p.meterRedZone = juce::Colour(0xffff427a);
+            p.meterNeedle = juce::Colour(0xff5ce1ff);
+            p.meterNeedleGlow = juce::Colour(0x665ce1ff);
+            break;
+        }
+        case Theme::SolarOverdrive: {
+            p.panelGradTop = juce::Colour(0xff1c1310);
+            p.panelGradMid1 = juce::Colour(0xff261914);
+            p.panelGradMid2 = juce::Colour(0xff160f0c);
+            p.panelGradBottom = juce::Colour(0xff0c0806);
+            p.panelStripe = juce::Colour(0x0cff9d1c);
+            p.panelBorder = juce::Colour(0xff6b3f22);
+            p.panelInnerBorder = juce::Colour(0x44ff9d1c);
+
+            p.accentPrimary = juce::Colour(0xffff9d1c);
+            p.accentSecondary = juce::Colour(0xffff2a55);
+            p.hudGrid = juce::Colour(0x1cff9d1c);
+
+            p.screwTop = juce::Colour(0xff805536);
+            p.screwBottom = juce::Colour(0xff331e10);
+            p.screwBorder = juce::Colour(0xffb87d52);
+            p.screwSlot = juce::Colour(0xff120a05);
+
+            p.headerBrand = juce::Colour(0xffff9d1c);
+            p.headerTitle = juce::Colour(0xfffff2e0);
+            p.headerSub = juce::Colour(0xffc99b78);
+            p.headerDivider = juce::Colour(0x77ff9d1c);
+
+            p.sectionWellBg = juce::Colour(0xd817100c);
+            p.sectionBorder = juce::Colour(0xff59341c);
+            p.sectionHeaderPlate = juce::Colour(0xff261812);
+            p.sectionTitleText = juce::Colour(0xffff9d1c);
+            p.labelText = juce::Colour(0xffffe4c4);
+
+            p.knobTick = juce::Colour(0xbbc99b78);
+            p.knobDropShadow = juce::Colour(0x88000000);
+            p.knobCollarTop = juce::Colour(0xff472d1d);
+            p.knobCollarMid = juce::Colour(0xff301e13);
+            p.knobCollarBottom = juce::Colour(0xff1a100a);
+            p.knobCollarBorder = juce::Colour(0xff75482b);
+            p.knobCoreTop = juce::Colour(0xff382216);
+            p.knobCoreMid1 = juce::Colour(0xff4f3120);
+            p.knobCoreMid2 = juce::Colour(0xff26170f);
+            p.knobCoreBottom = juce::Colour(0xff140c08);
+            p.knobCoreBorder = juce::Colour(0xffff9d1c);
+            p.knobPointer = juce::Colour(0xfffff6eb);
+            p.knobPointerShadow = juce::Colour(0xbb000000);
+
+            p.switchPlateBg = juce::Colour(0xff1c120d);
+            p.switchPlateBorder = juce::Colour(0xff663c22);
+            p.switchSlotBg = juce::Colour(0xff0d0805);
+            p.switchLeverTop = juce::Colour(0xffffe0b8);
+            p.switchLeverBottom = juce::Colour(0xffb8621b);
+            p.switchLeverBorder = juce::Colour(0xffff9d1c);
+            p.switchActiveText = juce::Colour(0xfffff2e0);
+            p.switchInactiveText = juce::Colour(0xff946f54);
+
+            p.jewelBezelBg = juce::Colour(0xff422818);
+            p.jewelBezelBorder = juce::Colour(0xff875534);
+            p.jewelHalo = juce::Colour(0x66ff9d1c);
+            p.jewelCoreOn = juce::Colour(0xfffff2d6);
+            p.jewelEdgeOn = juce::Colour(0xffff6600);
+            p.jewelCoreOff = juce::Colour(0xff2e1506);
+            p.jewelEdgeOff = juce::Colour(0xff140802);
+
+            p.comboBg = juce::Colour(0xff1f140e);
+            p.comboBorder = juce::Colour(0xff613920);
+            p.comboText = juce::Colour(0xfffff2e0);
+            p.comboArrow = juce::Colour(0xffff9d1c);
+            p.popupBg = juce::Colour(0xff170f0a);
+            p.popupHighlightBg = juce::Colour(0xff3b2314);
+            p.popupHighlightText = juce::Colour(0xffff9d1c);
+
+            p.meterFrameBg = juce::Colour(0xff100a07);
+            p.meterFrameBorder = juce::Colour(0xff59341c);
+            p.meterFaceTop = juce::Colour(0xff24160f);
+            p.meterFaceMid = juce::Colour(0xff190f0a);
+            p.meterFaceBottom = juce::Colour(0xff0f0906);
+            p.meterFaceShadow = juce::Colour(0x66000000);
+            p.meterScaleText = juce::Colour(0xffdeb08a);
+            p.meterRedZone = juce::Colour(0xffff2a55);
+            p.meterNeedle = juce::Colour(0xffff9d1c);
+            p.meterNeedleGlow = juce::Colour(0x66ff9d1c);
+            break;
+        }
+        case Theme::CyberNeon:
         default: {
-            p.panelGradTop = juce::Colour(0xff22252a);
-            p.panelGradMid1 = juce::Colour(0xff2a2e34);
-            p.panelGradMid2 = juce::Colour(0xff1d2024);
-            p.panelGradBottom = juce::Colour(0xff141618);
-            p.panelStripe = juce::Colour(0x06ffffff);
-            p.panelBorder = juce::Colour(0xff3f3b33);
-            p.panelInnerBorder = juce::Colour(0xff111214);
+            p.panelGradTop = juce::Colour(0xff0e121c);
+            p.panelGradMid1 = juce::Colour(0xff141a29);
+            p.panelGradMid2 = juce::Colour(0xff0b0f18);
+            p.panelGradBottom = juce::Colour(0xff06080d);
+            p.panelStripe = juce::Colour(0x0c00f0ff);
+            p.panelBorder = juce::Colour(0xff283856);
+            p.panelInnerBorder = juce::Colour(0x5500f0ff);
 
-            p.screwTop = juce::Colour(0xff555a60);
-            p.screwBottom = juce::Colour(0xff222528);
-            p.screwBorder = juce::Colour(0xff777d85);
-            p.screwSlot = juce::Colour(0xff111315);
+            p.accentPrimary = juce::Colour(0xff00f0ff);
+            p.accentSecondary = juce::Colour(0xffff2a85);
+            p.hudGrid = juce::Colour(0x1c00f0ff);
 
-            p.headerBrand = juce::Colour(0xffd4b475);
-            p.headerTitle = juce::Colour(0xffeedcb3);
-            p.headerSub = juce::Colour(0xffa8977a);
-            p.headerDivider = juce::Colour(0x55dfc488);
+            p.screwTop = juce::Colour(0xff3e4d6b);
+            p.screwBottom = juce::Colour(0xff161c29);
+            p.screwBorder = juce::Colour(0xff647ba8);
+            p.screwSlot = juce::Colour(0xff080b11);
 
-            p.sectionWellBg = juce::Colour(0x33000000);
-            p.sectionBorder = juce::Colour(0xff443f36);
-            p.sectionHeaderPlate = juce::Colour(0x55111315);
-            p.sectionTitleText = juce::Colour(0xffdfc488);
-            p.labelText = juce::Colour(0xffdfc488);
+            p.headerBrand = juce::Colour(0xff00f0ff);
+            p.headerTitle = juce::Colour(0xfff0f8ff);
+            p.headerSub = juce::Colour(0xff8ca4c8);
+            p.headerDivider = juce::Colour(0x8800f0ff);
 
-            p.knobTick = juce::Colour(0x99dfb872);
-            p.knobDropShadow = juce::Colour(0x77000000);
-            p.knobCollarTop = juce::Colour(0xff2b2f33);
-            p.knobCollarMid = juce::Colour(0xff454a50);
-            p.knobCollarBottom = juce::Colour(0xff121416);
-            p.knobCollarBorder = juce::Colour(0xff60584c);
-            p.knobCoreTop = juce::Colour(0xffc8a86b);
-            p.knobCoreMid1 = juce::Colour(0xffdfc488);
-            p.knobCoreMid2 = juce::Colour(0xff8a6f3e);
-            p.knobCoreBottom = juce::Colour(0xff4a3b22);
-            p.knobCoreBorder = juce::Colour(0x22ffffff);
-            p.knobPointer = juce::Colour(0xfffff2d6);
-            p.knobPointerShadow = juce::Colour(0x99000000);
+            p.sectionWellBg = juce::Colour(0xd80b0f19);
+            p.sectionBorder = juce::Colour(0xff253552);
+            p.sectionHeaderPlate = juce::Colour(0xff131b2e);
+            p.sectionTitleText = juce::Colour(0xff00f0ff);
+            p.labelText = juce::Colour(0xffd6ecff);
 
-            p.switchPlateBg = juce::Colour(0xff181a1c);
-            p.switchPlateBorder = juce::Colour(0xff4a453d);
-            p.switchSlotBg = juce::Colour(0xff090a0b);
-            p.switchLeverTop = juce::Colour(0xffdcd6cb);
-            p.switchLeverBottom = juce::Colour(0xff6a6458);
-            p.switchLeverBorder = juce::Colour(0xffffffff);
-            p.switchActiveText = juce::Colour(0xffeedcb3);
-            p.switchInactiveText = juce::Colour(0xff888277);
+            p.knobTick = juce::Colour(0xbb8ca4c8);
+            p.knobDropShadow = juce::Colour(0x88000000);
+            p.knobCollarTop = juce::Colour(0xff28334a);
+            p.knobCollarMid = juce::Colour(0xff1b2334);
+            p.knobCollarBottom = juce::Colour(0xff0e131d);
+            p.knobCollarBorder = juce::Colour(0xff3d5075);
+            p.knobCoreTop = juce::Colour(0xff1f283b);
+            p.knobCoreMid1 = juce::Colour(0xff2c3954);
+            p.knobCoreMid2 = juce::Colour(0xff151c2b);
+            p.knobCoreBottom = juce::Colour(0xff0c101a);
+            p.knobCoreBorder = juce::Colour(0xff00f0ff);
+            p.knobPointer = juce::Colour(0xffffffff);
+            p.knobPointerShadow = juce::Colour(0xbb000000);
 
-            p.jewelBezelBg = juce::Colour(0xff3a3834);
-            p.jewelBezelBorder = juce::Colour(0xff6e675b);
-            p.jewelHalo = juce::Colour(0x44ff9900);
-            p.jewelCoreOn = juce::Colour(0xffffefb8);
-            p.jewelEdgeOn = juce::Colour(0xffff7700);
-            p.jewelCoreOff = juce::Colour(0xff442810);
-            p.jewelEdgeOff = juce::Colour(0xff180e06);
+            p.switchPlateBg = juce::Colour(0xff0e1422);
+            p.switchPlateBorder = juce::Colour(0xff2d4269);
+            p.switchSlotBg = juce::Colour(0xff060910);
+            p.switchLeverTop = juce::Colour(0xffd6faff);
+            p.switchLeverBottom = juce::Colour(0xff0099bb);
+            p.switchLeverBorder = juce::Colour(0xff00f0ff);
+            p.switchActiveText = juce::Colour(0xfff0f8ff);
+            p.switchInactiveText = juce::Colour(0xff647a9e);
 
-            p.comboBg = juce::Colour(0xff181a1d);
-            p.comboBorder = juce::Colour(0xff524b42);
-            p.comboText = juce::Colour(0xffeedcb3);
-            p.comboArrow = juce::Colour(0xffdfb872);
-            p.popupBg = juce::Colour(0xff16171a);
-            p.popupHighlightBg = juce::Colour(0xff3a352a);
-            p.popupHighlightText = juce::Colour(0xffffffff);
+            p.jewelBezelBg = juce::Colour(0xff202b42);
+            p.jewelBezelBorder = juce::Colour(0xff4c6594);
+            p.jewelHalo = juce::Colour(0x6600f0ff);
+            p.jewelCoreOn = juce::Colour(0xffe8ffff);
+            p.jewelEdgeOn = juce::Colour(0xff00d8ff);
+            p.jewelCoreOff = juce::Colour(0xff09222c);
+            p.jewelEdgeOff = juce::Colour(0xff030c12);
 
-            p.meterFrameBg = juce::Colour(0xff121416);
-            p.meterFrameBorder = juce::Colour(0xff443f36);
-            p.meterFaceTop = juce::Colour(0xffeeddbb);
-            p.meterFaceMid = juce::Colour(0xffdfc495);
-            p.meterFaceBottom = juce::Colour(0xffcaa877);
-            p.meterFaceShadow = juce::Colour(0x33000000);
-            p.meterScaleText = juce::Colour(0xff281e14);
-            p.meterRedZone = juce::Colour(0xffbb2222);
-            p.meterNeedle = juce::Colour(0xff111111);
-            p.meterNeedleGlow = juce::Colour(0x44ffaa22);
+            p.comboBg = juce::Colour(0xff111829);
+            p.comboBorder = juce::Colour(0xff2e446b);
+            p.comboText = juce::Colour(0xfff0f8ff);
+            p.comboArrow = juce::Colour(0xff00f0ff);
+            p.popupBg = juce::Colour(0xff0c111d);
+            p.popupHighlightBg = juce::Colour(0xff1c2b47);
+            p.popupHighlightText = juce::Colour(0xff00f0ff);
+
+            p.meterFrameBg = juce::Colour(0xff080b13);
+            p.meterFrameBorder = juce::Colour(0xff283b5c);
+            p.meterFaceTop = juce::Colour(0xff121a2d);
+            p.meterFaceMid = juce::Colour(0xff0c1220);
+            p.meterFaceBottom = juce::Colour(0xff070b14);
+            p.meterFaceShadow = juce::Colour(0x66000000);
+            p.meterScaleText = juce::Colour(0xff8eb2de);
+            p.meterRedZone = juce::Colour(0xffff2a85);
+            p.meterNeedle = juce::Colour(0xff00f0ff);
+            p.meterNeedleGlow = juce::Colour(0x6600f0ff);
             break;
         }
     }
@@ -317,15 +414,15 @@ ThemePalette AnalogLookAndFeel::createPalette(Theme theme) {
 }
 
 AnalogLookAndFeel::AnalogLookAndFeel() {
-    setTheme(Theme::ClassicCharcoal);
+    setTheme(Theme::CyberNeon);
 }
 
 void AnalogLookAndFeel::setTheme(Theme theme) {
     theme_ = theme;
     palette_ = createPalette(theme);
 
-    setColour(juce::Slider::textBoxTextColourId, palette_.labelText);
-    setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0x22000000));
+    setColour(juce::Slider::textBoxTextColourId, palette_.headerTitle);
+    setColour(juce::Slider::textBoxBackgroundColourId, palette_.panelGradBottom.withAlpha(0.88f));
     setColour(juce::Slider::textBoxOutlineColourId, palette_.sectionBorder);
 
     setColour(juce::ComboBox::backgroundColourId, palette_.comboBg);
@@ -344,38 +441,98 @@ void AnalogLookAndFeel::drawRotarySlider(
     int x, int y, int width, int height,
     float sliderPosProportional,
     float rotaryStartAngle, float rotaryEndAngle,
-    juce::Slider& /*slider*/
+    juce::Slider& slider
 ) {
     auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
-                                         static_cast<float>(width), static_cast<float>(height)).reduced(6.0f);
+                                         static_cast<float>(width), static_cast<float>(height)).reduced(10.0f, 6.0f);
 
-    const float radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const float radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.44f;
     const float centreX = bounds.getCentreX();
-    const float centreY = bounds.getCentreY();
-    const float rx = centreX - radius;
-    const float ry = centreY - radius;
-    const float rw = radius * 2.0f;
+    const float centreY = bounds.getCentreY() + 1.0f;
+    const float currentAngle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
 
-    // 1. Draw outer tick marks around the knob arc
-    constexpr int numTicks = 11;
+    // 1. Cyber Scale Readout Labels & Illuminated Tick Ring
+    juce::StringArray tickLabels;
+    const double maxVal = slider.getMaximum();
+    const double minVal = slider.getMinimum();
+    if (maxVal > 5000.0) {
+        tickLabels = { "8k", "12k", "16k", "20k", "24k" };
+    } else if (maxVal > 300.0) {
+        tickLabels = { "40", "90", "160", "280", "500" };
+    } else if (minVal < 0.0) {
+        tickLabels = { "-18", "-9", "0dB", "+9", "+18" };
+    } else if (maxVal >= 199.0 && minVal < 1.0) {
+        tickLabels = { "MONO", "50%", "100%", "150%", "200%" };
+    } else {
+        tickLabels = { "10", "25", "55", "110", "200" };
+    }
+
+    constexpr int numTicks = 21;
     for (int i = 0; i < numTicks; ++i) {
-        const float tickAngle = rotaryStartAngle + (rotaryEndAngle - rotaryStartAngle) * (static_cast<float>(i) / (numTicks - 1));
+        const float norm = static_cast<float>(i) / static_cast<float>(numTicks - 1);
+        const float tickAngle = rotaryStartAngle + (rotaryEndAngle - rotaryStartAngle) * norm;
         const float cosA = std::cos(tickAngle - std::numbers::pi_v<float> * 0.5f);
         const float sinA = std::sin(tickAngle - std::numbers::pi_v<float> * 0.5f);
 
-        const float innerR = radius + 1.0f;
-        const float outerR = radius + ((i == 0 || i == numTicks - 1 || i == 5) ? 5.5f : 3.5f);
+        const bool isMajor = (i % 5 == 0);
+        const bool isLit = (norm <= sliderPosProportional + 0.005f);
+        const float innerR = radius + 4.5f;
+        const float outerR = radius + (isMajor ? 9.5f : 7.0f);
 
-        g.setColour(palette_.knobTick);
+        juce::Colour tickCol = isLit
+            ? palette_.accentPrimary.interpolatedWith(palette_.accentSecondary, norm)
+            : palette_.knobTick.withAlpha(isMajor ? 0.55f : 0.28f);
+        g.setColour(tickCol);
         g.drawLine(centreX + innerR * cosA, centreY + innerR * sinA,
-                   centreX + outerR * cosA, centreY + outerR * sinA, 1.2f);
+                   centreX + outerR * cosA, centreY + outerR * sinA, isMajor ? 1.5f : 1.0f);
+
+        if (isMajor) {
+            const int labelIdx = i / 5;
+            if (labelIdx >= 0 && labelIdx < tickLabels.size()) {
+                const float labelR = radius + 17.5f;
+                const float lx = centreX + labelR * cosA;
+                const float ly = centreY + labelR * sinA;
+                g.setColour(isLit ? palette_.headerTitle : palette_.knobTick.withAlpha(0.75f));
+                g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
+                g.drawText(tickLabels[labelIdx],
+                           static_cast<int>(lx - 15.0f),
+                           static_cast<int>(ly - 5.0f),
+                           30, 10,
+                           juce::Justification::centred, false);
+            }
+        }
     }
 
-    // 2. Drop shadow under knob
-    g.setColour(palette_.knobDropShadow);
-    g.fillEllipse(rx + 2.0f, ry + 3.0f, rw, rw);
+    // 2. Glowing Cyber Neon Value Arc Track
+    const float arcRadius = radius + 1.5f;
+    juce::Path bgArc;
+    bgArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
+    g.setColour(palette_.switchSlotBg.brighter(0.15f));
+    g.strokePath(bgArc, juce::PathStrokeType(3.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    // 3. Outer knurled metal collar
+    if (sliderPosProportional > 0.004f) {
+        juce::Path valArc;
+        valArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, rotaryStartAngle, currentAngle, true);
+
+        juce::ColourGradient arcGrad(palette_.accentPrimary, centreX - arcRadius, centreY,
+                                     palette_.accentSecondary, centreX + arcRadius, centreY, false);
+        g.setGradientFill(arcGrad);
+        g.strokePath(valArc, juce::PathStrokeType(3.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+        // Neon bloom halo
+        g.setColour(palette_.accentPrimary.withAlpha(0.24f));
+        g.strokePath(valArc, juce::PathStrokeType(7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
+    // 3. Drop Shadow & Anodized Cyber Collar
+    const float bodyRadius = radius * 0.84f;
+    const float rx = centreX - bodyRadius;
+    const float ry = centreY - bodyRadius;
+    const float rw = bodyRadius * 2.0f;
+
+    g.setColour(palette_.knobDropShadow);
+    g.fillEllipse(rx + 1.5f, ry + 3.0f, rw, rw);
+
     juce::ColourGradient collarGrad(palette_.knobCollarTop, rx, ry,
                                    palette_.knobCollarBottom, rx + rw, ry + rw, false);
     collarGrad.addColour(0.5, palette_.knobCollarMid);
@@ -385,93 +542,114 @@ void AnalogLookAndFeel::drawRotarySlider(
     g.setColour(palette_.knobCollarBorder);
     g.drawEllipse(rx, ry, rw, rw, 1.2f);
 
-    // 4. Inner machined core
-    const float innerRadius = radius * 0.78f;
+    // Knurled turbine grooves around collar
+    constexpr int numGrooves = 24;
+    g.setColour(juce::Colours::black.withAlpha(0.42f));
+    for (int i = 0; i < numGrooves; ++i) {
+        const float ga = static_cast<float>(i) * (2.0f * std::numbers::pi_v<float> / static_cast<float>(numGrooves));
+        const float r0 = bodyRadius * 0.82f;
+        const float r1 = bodyRadius * 0.97f;
+        g.drawLine(centreX + std::sin(ga) * r0, centreY - std::cos(ga) * r0,
+                   centreX + std::sin(ga) * r1, centreY - std::cos(ga) * r1, 1.0f);
+    }
+
+    // 4. Inner Cyber Core Cap with Neon Ring
+    const float innerRadius = bodyRadius * 0.72f;
     const float irx = centreX - innerRadius;
     const float iry = centreY - innerRadius;
     const float irw = innerRadius * 2.0f;
 
     juce::ColourGradient coreGrad(palette_.knobCoreTop, irx, iry,
                                   palette_.knobCoreBottom, irx + irw, iry + irw, false);
-    coreGrad.addColour(0.3, palette_.knobCoreMid1);
-    coreGrad.addColour(0.7, palette_.knobCoreMid2);
+    coreGrad.addColour(0.35, palette_.knobCoreMid1);
+    coreGrad.addColour(0.75, palette_.knobCoreMid2);
     g.setGradientFill(coreGrad);
     g.fillEllipse(irx, iry, irw, irw);
 
-    // Subtle radial accent
-    g.setColour(palette_.knobCoreBorder);
-    g.drawEllipse(irx + 2.0f, iry + 2.0f, irw - 4.0f, irw - 4.0f, 0.8f);
+    g.setColour(palette_.accentPrimary.withAlpha(0.45f));
+    g.drawEllipse(irx + 1.0f, iry + 1.0f, irw - 2.0f, irw - 2.0f, 1.0f);
 
-    // 5. Knob pointer line
-    const float currentAngle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
+    // 5. Laser Pointer Line & Glowing Tip Node
     const float pCos = std::cos(currentAngle - std::numbers::pi_v<float> * 0.5f);
     const float pSin = std::sin(currentAngle - std::numbers::pi_v<float> * 0.5f);
 
-    juce::Path pointer;
-    const float pStart = innerRadius * 0.25f;
-    const float pEnd = innerRadius * 0.92f;
-    pointer.startNewSubPath(centreX + pStart * pCos, centreY + pStart * pSin);
-    pointer.lineTo(centreX + pEnd * pCos, centreY + pEnd * pSin);
+    const float pStart = innerRadius * 0.22f;
+    const float pEnd = bodyRadius * 0.90f;
+    const float sx0 = centreX + pStart * pCos;
+    const float sy0 = centreY + pStart * pSin;
+    const float sx1 = centreX + pEnd * pCos;
+    const float sy1 = centreY + pEnd * pSin;
 
-    // Pointer shadow and line
-    g.setColour(palette_.knobPointerShadow);
-    g.strokePath(pointer, juce::PathStrokeType(3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
+    g.setColour(palette_.accentPrimary.withAlpha(0.45f));
+    g.drawLine(sx0, sy0, sx1, sy1, 4.2f);
     g.setColour(palette_.knobPointer);
-    g.strokePath(pointer, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.drawLine(sx0, sy0, sx1, sy1, 2.0f);
+    g.setColour(palette_.accentPrimary);
+    g.fillEllipse(sx1 - 2.3f, sy1 - 2.3f, 4.6f, 4.6f);
 }
 
 void AnalogLookAndFeel::drawToggleButton(
     juce::Graphics& g,
     juce::ToggleButton& button,
-    bool /*shouldDrawButtonAsHighlighted*/,
+    bool shouldDrawButtonAsHighlighted,
     bool /*shouldDrawButtonAsDown*/
 ) {
-    auto bounds = button.getLocalBounds().toFloat();
-    const float switchWidth = 24.0f;
-    const float switchHeight = 36.0f;
-    const float switchX = bounds.getX() + 4.0f;
-    const float switchY = bounds.getCentreY() - switchHeight * 0.5f;
-
-    // Switch bezel plate
-    juce::Rectangle<float> switchPlate(switchX, switchY, switchWidth, switchHeight);
-    g.setColour(palette_.switchPlateBg);
-    g.fillRoundedRectangle(switchPlate, 3.0f);
-    g.setColour(palette_.switchPlateBorder);
-    g.drawRoundedRectangle(switchPlate, 3.0f, 1.0f);
-
-    // Switch slot
-    juce::Rectangle<float> slot(switchPlate.getCentreX() - 3.0f, switchPlate.getY() + 4.0f, 6.0f, switchHeight - 8.0f);
-    g.setColour(palette_.switchSlotBg);
-    g.fillRect(slot);
-
-    // Toggle bat (lever)
+    auto bounds = button.getLocalBounds().toFloat().reduced(2.0f, 2.0f);
     const bool isToggled = button.getToggleState();
-    const float leverY = isToggled ? (slot.getY() + 3.0f) : (slot.getBottom() - 11.0f);
-    juce::Rectangle<float> lever(switchPlate.getCentreX() - 6.0f, leverY, 12.0f, 8.0f);
+    const bool isPowerOrSolo = (button.getButtonText() == "POWER" || button.getButtonText() == "SOLO");
+    const juce::Colour activeAccent = isPowerOrSolo ? palette_.accentSecondary : palette_.accentPrimary;
 
-    juce::ColourGradient leverGrad(palette_.switchLeverTop, lever.getX(), lever.getY(),
-                                  palette_.switchLeverBottom, lever.getRight(), lever.getBottom(), false);
-    g.setGradientFill(leverGrad);
-    g.fillRoundedRectangle(lever, 2.0f);
-    g.setColour(palette_.switchLeverBorder);
-    g.drawRoundedRectangle(lever, 2.0f, 0.8f);
+    // Cyber Illuminated Tactile Switch Pad
+    juce::Colour bgCol = isToggled
+        ? activeAccent.withAlpha(0.22f)
+        : palette_.switchPlateBg;
+    if (shouldDrawButtonAsHighlighted) {
+        bgCol = bgCol.brighter(0.15f);
+    }
 
-    // Jewel LED indicator
-    const float ledSize = 10.0f;
-    const float ledX = switchPlate.getRight() + 8.0f;
+    // Chamfered / rounded cyber button frame
+    g.setColour(bgCol);
+    g.fillRoundedRectangle(bounds, 4.5f);
+
+    if (isToggled) {
+        g.setColour(activeAccent.withAlpha(0.28f));
+        g.drawRoundedRectangle(bounds.expanded(1.2f), 5.5f, 2.2f);
+    }
+
+    g.setColour(isToggled ? activeAccent : palette_.switchPlateBorder);
+    g.drawRoundedRectangle(bounds, 4.5f, isToggled ? 1.5f : 1.0f);
+
+    // Top/left subtle cyber bracket highlight
+    if (isToggled) {
+        g.setColour(activeAccent);
+        g.fillRoundedRectangle(bounds.getX() + 6.0f, bounds.getBottom() - 3.0f, bounds.getWidth() - 12.0f, 2.0f, 1.0f);
+    }
+
+    // Glowing Jewel LED Indicator on left
+    const float ledSize = 9.0f;
+    const float ledX = bounds.getX() + 10.0f;
     const float ledY = bounds.getCentreY() - ledSize * 0.5f;
-    drawVintageJewelLed(g, juce::Rectangle<float>(ledX, ledY, ledSize, ledSize), isToggled, palette_);
+    juce::Rectangle<float> ledRect(ledX, ledY, ledSize, ledSize);
 
-    // Text label
+    if (isToggled) {
+        g.setColour(activeAccent.withAlpha(0.42f));
+        g.fillEllipse(ledRect.expanded(3.0f));
+        g.setColour(palette_.headerTitle);
+        g.fillEllipse(ledRect.reduced(1.5f));
+        g.setColour(activeAccent);
+        g.drawEllipse(ledRect, 1.5f);
+    } else {
+        g.setColour(palette_.switchSlotBg);
+        g.fillEllipse(ledRect);
+        g.setColour(palette_.switchPlateBorder);
+        g.drawEllipse(ledRect, 1.0f);
+    }
+
+    // Button Text
     g.setColour(isToggled ? palette_.switchActiveText : palette_.switchInactiveText);
-    g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
-    g.drawText(button.getButtonText(),
-               static_cast<int>(ledX + ledSize + 8.0f),
-               0,
-               static_cast<int>(bounds.getWidth() - (ledX + ledSize + 8.0f)),
-               static_cast<int>(bounds.getHeight()),
-               juce::Justification::centredLeft);
+    g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+    auto textRect = bounds.withTrimmedLeft(22.0f);
+    g.drawText(button.getButtonText(), textRect.toNearestInt(), juce::Justification::centred);
 }
 
 void AnalogLookAndFeel::drawVintageJewelLed(juce::Graphics& g, juce::Rectangle<float> bounds, bool isActive) const {
@@ -479,17 +657,15 @@ void AnalogLookAndFeel::drawVintageJewelLed(juce::Graphics& g, juce::Rectangle<f
 }
 
 void AnalogLookAndFeel::drawVintageJewelLed(juce::Graphics& g, juce::Rectangle<float> bounds, bool isActive, const ThemePalette& palette) {
-    // Outer metal bezel
     g.setColour(palette.jewelBezelBg);
     g.fillEllipse(bounds);
     g.setColour(palette.jewelBezelBorder);
     g.drawEllipse(bounds, 1.0f);
 
-    // Inner glowing jewel
     auto inner = bounds.reduced(1.8f);
     if (isActive) {
         g.setColour(palette.jewelHalo);
-        g.fillEllipse(bounds.expanded(3.0f));
+        g.fillEllipse(bounds.expanded(3.5f));
 
         juce::ColourGradient ledGrad(palette.jewelCoreOn, inner.getCentreX(), inner.getCentreY(),
                                     palette.jewelEdgeOn, inner.getX(), inner.getY(), true);
@@ -512,9 +688,8 @@ void AnalogLookAndFeel::drawRackScrew(juce::Graphics& g, float centerX, float ce
     const float y = centerY - radius;
     const float d = radius * 2.0f;
 
-    // Screw head shadow & outer circle
-    g.setColour(juce::Colour(0x99000000));
-    g.fillEllipse(x + 1.0f, y + 1.0f, d, d);
+    g.setColour(juce::Colour(0xaa000000));
+    g.fillEllipse(x + 1.0f, y + 1.5f, d, d);
 
     juce::ColourGradient screwGrad(palette.screwTop, x, y,
                                   palette.screwBottom, x + d, y + d, false);
@@ -522,13 +697,23 @@ void AnalogLookAndFeel::drawRackScrew(juce::Graphics& g, float centerX, float ce
     g.fillEllipse(x, y, d, d);
 
     g.setColour(palette.screwBorder);
-    g.drawEllipse(x, y, d, d, 0.8f);
+    g.drawEllipse(x, y, d, d, 1.0f);
 
-    // Phillips slot
+    // Cyber Hex Socket
+    juce::Path hex;
+    const float hr = radius * 0.52f;
+    for (int i = 0; i < 6; ++i) {
+        const float a = static_cast<float>(i) * (std::numbers::pi_v<float> / 3.0f);
+        const float hx = centerX + hr * std::cos(a);
+        const float hy = centerY + hr * std::sin(a);
+        if (i == 0) hex.startNewSubPath(hx, hy);
+        else hex.lineTo(hx, hy);
+    }
+    hex.closeSubPath();
     g.setColour(palette.screwSlot);
-    const float slotLen = radius * 0.65f;
-    g.drawLine(centerX - slotLen, centerY, centerX + slotLen, centerY, 1.2f);
-    g.drawLine(centerX, centerY - slotLen, centerX, centerY + slotLen, 1.2f);
+    g.fillPath(hex);
+    g.setColour(palette.accentPrimary.withAlpha(0.35f));
+    g.strokePath(hex, juce::PathStrokeType(0.8f));
 }
 
 void AnalogLookAndFeel::drawComboBox(
@@ -538,19 +723,21 @@ void AnalogLookAndFeel::drawComboBox(
     int /*buttonX*/, int /*buttonY*/, int /*buttonW*/, int /*buttonH*/,
     juce::ComboBox& /*box*/
 ) {
-    auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height));
+    auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height)).reduced(1.0f);
 
-    // Vintage beveled inset
     g.setColour(palette_.comboBg);
-    g.fillRoundedRectangle(bounds, 3.0f);
+    g.fillRoundedRectangle(bounds, 4.0f);
     g.setColour(palette_.comboBorder);
-    g.drawRoundedRectangle(bounds, 3.0f, 1.0f);
+    g.drawRoundedRectangle(bounds, 4.0f, 1.2f);
 
-    // Vintage downward triangle arrow
-    const float arrowX = static_cast<float>(width - 16);
+    // Subtle left neon accent bar
+    g.setColour(palette_.accentPrimary.withAlpha(0.75f));
+    g.fillRoundedRectangle(bounds.getX() + 2.5f, bounds.getY() + 4.0f, 2.5f, bounds.getHeight() - 8.0f, 1.0f);
+
+    const float arrowX = static_cast<float>(width - 15);
     const float arrowY = static_cast<float>(height) * 0.5f;
     juce::Path arrow;
-    arrow.addTriangle(arrowX, arrowY - 2.5f, arrowX + 8.0f, arrowY - 2.5f, arrowX + 4.0f, arrowY + 3.0f);
+    arrow.addTriangle(arrowX, arrowY - 2.5f, arrowX + 7.5f, arrowY - 2.5f, arrowX + 3.75f, arrowY + 3.0f);
     g.setColour(palette_.comboArrow);
     g.fillPath(arrow);
 }
@@ -559,8 +746,8 @@ void AnalogLookAndFeel::drawPopupMenuBackground(juce::Graphics& g, int width, in
     auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height));
     g.setColour(palette_.popupBg);
     g.fillRect(bounds);
-    g.setColour(palette_.comboBorder);
-    g.drawRect(bounds, 1.0f);
+    g.setColour(palette_.accentPrimary.withAlpha(0.6f));
+    g.drawRect(bounds, 1.2f);
 }
 
 } // namespace analog_master::ui
