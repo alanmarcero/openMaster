@@ -102,11 +102,18 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
     masterGainAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kMasterGain, masterGainSlider_);
     masterBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterPower, masterBypassButton_);
 
+    // Double-click any rotary knob to snap back to its mastering default
+    lowCutFreqSlider_.setDoubleClickReturnValue(true, 20.0);
+    stereoWidthSlider_.setDoubleClickReturnValue(true, 0.0);
+    stereoFreqSlider_.setDoubleClickReturnValue(true, 120.0);
+    highCutFreqSlider_.setDoubleClickReturnValue(true, 20000.0);
+    masterGainSlider_.setDoubleClickReturnValue(true, 0.0);
+
     processor_.parameters.addParameterListener(kTheme, this);
 
     applyTheme(themeBox_.getSelectedItemIndex());
 
-    setSize(1040, 480);
+    setSize(1040, 540);
     startTimerHz(30);
 }
 
@@ -148,7 +155,7 @@ void AnalogMasterEditor::timerCallback() {
     auto levels = processor_.meterLevels();
     const float levelL = levels.vuL > 1e-4f ? levels.vuL : levels.peakL;
     const float levelR = levels.vuR > 1e-4f ? levels.vuR : levels.peakR;
-    meter_.setLevels(levelL, levelR, levels.clipL, levels.clipR);
+    meter_.setLevels(levelL, levelR, levels.clipL, levels.clipR, levels.correlation);
     repaint();
 }
 
@@ -269,6 +276,9 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
         powerOn
     };
 
+    constexpr int kPolesPerSlope[5] = { 2, 4, 8, 10, 16 };
+    constexpr int kDbPerOct[5] = { 12, 24, 48, 64, 96 };
+
     for (int i = 0; i < 4; ++i) {
         const float sx = sectionMargin + static_cast<float>(i) * (sectionW + sectionSpacing);
         juce::Rectangle<float> secRect(sx, sectionY, sectionW, sectionH);
@@ -317,6 +327,109 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
         g.setColour(active ? modAccent : pal.sectionBorder);
         g.fillRoundedRectangle(sx + 16.0f, headerPlate.getBottom() + 3.0f, sectionW - 32.0f, 2.0f, 1.0f);
 
+        // Holographic Filter / Stereo Field Mini-Display in Bays 0, 1, 2
+        if (i < 3) {
+            juce::Rectangle<float> dispRect(sx + 14.0f, sectionY + 52.0f, sectionW - 28.0f, 52.0f);
+            g.setColour(pal.meterFaceBottom);
+            g.fillRoundedRectangle(dispRect, 4.5f);
+            g.setColour(active ? modAccent.withAlpha(0.45f) : pal.sectionBorder);
+            g.drawRoundedRectangle(dispRect, 4.5f, 1.0f);
+
+            // Internal reticle lines
+            g.setColour(pal.hudGrid.withAlpha(0.16f));
+            g.drawHorizontalLine(static_cast<int>(dispRect.getY() + 14.0f), dispRect.getX() + 3.0f, dispRect.getRight() - 3.0f);
+            g.drawHorizontalLine(static_cast<int>(dispRect.getCentreY()), dispRect.getX() + 3.0f, dispRect.getRight() - 3.0f);
+
+            const auto plot = dispRect.reduced(5.0f, 6.0f);
+            const juce::Colour traceCol = active ? modAccent : pal.headerSub.withAlpha(0.45f);
+
+            if (i == 0 || i == 2) {
+                const bool isHighPass = (i == 0);
+                const double fc = isHighPass ? lowCutFreqSlider_.getValue() : highCutFreqSlider_.getValue();
+                const int slopeIdx = std::clamp(isHighPass ? lowCutSlopeBox_.getSelectedItemIndex() : highCutSlopeBox_.getSelectedItemIndex(), 0, 4);
+                const int poles = kPolesPerSlope[slopeIdx];
+                const double minF = isHighPass ? 10.0 : 1000.0;
+                const double maxF = isHighPass ? 1000.0 : 30000.0;
+                const double logRatio = std::log(maxF / minF);
+
+                juce::Path curvePath;
+                juce::Path fillPath;
+                constexpr int kSteps = 44;
+                for (int s = 0; s <= kSteps; ++s) {
+                    const float normX = static_cast<float>(s) / static_cast<float>(kSteps);
+                    const double f = minF * std::exp(static_cast<double>(normX) * logRatio);
+                    const double ratio = isHighPass ? (fc / f) : (f / fc);
+                    const double magDb = -10.0 * std::log10(1.0 + std::pow(ratio, 2.0 * poles));
+                    const float normY = std::clamp(static_cast<float>((magDb + 36.0) / 36.0), 0.0f, 1.0f);
+                    const float px = plot.getX() + normX * plot.getWidth();
+                    const float py = plot.getBottom() - normY * (plot.getHeight() - 6.0f);
+
+                    if (s == 0) {
+                        curvePath.startNewSubPath(px, py);
+                        fillPath.startNewSubPath(px, plot.getBottom());
+                        fillPath.lineTo(px, py);
+                    } else {
+                        curvePath.lineTo(px, py);
+                        fillPath.lineTo(px, py);
+                    }
+                }
+                fillPath.lineTo(plot.getRight(), plot.getBottom());
+                fillPath.closeSubPath();
+
+                g.setColour(traceCol.withAlpha(active ? 0.18f : 0.06f));
+                g.fillPath(fillPath);
+                g.setColour(traceCol);
+                g.strokePath(curvePath, juce::PathStrokeType(1.7f));
+
+                // Cutoff -3 dB marker dot
+                const float fcNormX = std::clamp(static_cast<float>(std::log(fc / minF) / logRatio), 0.0f, 1.0f);
+                const float fcNormY = std::clamp(static_cast<float>((-3.0 + 36.0) / 36.0), 0.0f, 1.0f);
+                const float cx = plot.getX() + fcNormX * plot.getWidth();
+                const float cy = plot.getBottom() - fcNormY * (plot.getHeight() - 6.0f);
+                g.setColour(pal.headerTitle);
+                g.fillEllipse(cx - 2.5f, cy - 2.5f, 5.0f, 5.0f);
+
+                // Telemetry text overlay
+                g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+                g.setColour(pal.headerTitle.withAlpha(0.85f));
+                juce::String freqStr = (fc >= 1000.0) ? (juce::String(fc / 1000.0, 1) + " kHz") : (juce::String(static_cast<int>(fc)) + " Hz");
+                g.drawText(freqStr + " // -" + juce::String(kDbPerOct[slopeIdx]) + " dB/OCT",
+                           dispRect.reduced(6.0f, 3.0f).toNearestInt(), juce::Justification::bottomRight);
+            } else {
+                // Bay 1: Holographic M/S Stereo Width Cone & Crossover Display
+                const float widthPct = static_cast<float>(stereoWidthSlider_.getValue());
+                const float widthNorm = std::clamp(widthPct / 200.0f, 0.0f, 1.0f);
+                const double xoverHz = stereoFreqSlider_.getValue();
+                const bool soloLow = stereoSoloButton_.getToggleState();
+
+                const float centerX = plot.getCentreX();
+                const float baseY = plot.getBottom() - 2.0f;
+                const float topY = plot.getY() + 4.0f;
+                const float halfSpread = 2.0f + widthNorm * (plot.getWidth() * 0.44f);
+
+                juce::Path cone;
+                cone.startNewSubPath(centerX, baseY);
+                cone.lineTo(centerX - halfSpread, topY);
+                cone.lineTo(centerX + halfSpread, topY);
+                cone.closeSubPath();
+
+                g.setColour(traceCol.withAlpha(active ? 0.22f : 0.08f));
+                g.fillPath(cone);
+                g.setColour(traceCol);
+                g.strokePath(cone, juce::PathStrokeType(1.5f));
+
+                // Center Mid axis line
+                g.setColour(pal.headerTitle.withAlpha(0.6f));
+                g.drawVerticalLine(static_cast<int>(centerX), topY, baseY);
+
+                g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+                g.setColour(soloLow ? pal.meterRedZone : pal.headerTitle.withAlpha(0.85f));
+                juce::String modeTag = soloLow ? "SOLO LOW" : (widthPct < 5.0f ? "MONO SUB" : (widthPct > 105.0f ? "ALLPASS WIDE" : "M/S CONTOUR"));
+                g.drawText(juce::String(static_cast<int>(xoverHz)) + " Hz // " + modeTag,
+                           dispRect.reduced(6.0f, 3.0f).toNearestInt(), juce::Justification::bottomRight);
+            }
+        }
+
         // Bottom neon Edge Underglow Bar on active modules
         if (active) {
             g.setColour(modAccent);
@@ -348,7 +461,7 @@ void AnalogMasterEditor::resized() {
     // SECTION 0: LOW CUT EQ
     {
         auto r = getSectionRect(0).reduced(14.0f);
-        r.removeFromTop(42.0f);
+        r.removeFromTop(98.0f); // Header + Holographic HPF Curve Display
 
         lowCutFreqLabel_.setBounds(r.removeFromTop(18.0f).toNearestInt());
         lowCutFreqSlider_.setBounds(r.removeFromTop(165.0f).toNearestInt());
@@ -364,7 +477,7 @@ void AnalogMasterEditor::resized() {
     // SECTION 1: LOW STEREO FIELD
     {
         auto r = getSectionRect(1).reduced(14.0f);
-        r.removeFromTop(40.0f);
+        r.removeFromTop(96.0f); // Header + Holographic Stereo Cone Display
 
         stereoWidthLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
         stereoWidthSlider_.setBounds(r.removeFromTop(116.0f).toNearestInt());
@@ -382,7 +495,7 @@ void AnalogMasterEditor::resized() {
     // SECTION 2: HIGH CUT EQ
     {
         auto r = getSectionRect(2).reduced(14.0f);
-        r.removeFromTop(42.0f);
+        r.removeFromTop(98.0f); // Header + Holographic LPF Curve Display
 
         highCutFreqLabel_.setBounds(r.removeFromTop(18.0f).toNearestInt());
         highCutFreqSlider_.setBounds(r.removeFromTop(165.0f).toNearestInt());
@@ -398,15 +511,15 @@ void AnalogMasterEditor::resized() {
     // SECTION 3: MASTER OUTPUT
     {
         auto r = getSectionRect(3).reduced(14.0f);
-        r.removeFromTop(42.0f);
+        r.removeFromTop(44.0f);
 
-        meter_.setBounds(r.removeFromTop(108.0f).reduced(2.0f, 0.0f).toNearestInt());
+        meter_.setBounds(r.removeFromTop(148.0f).reduced(2.0f, 0.0f).toNearestInt());
 
-        r.removeFromTop(10.0f);
+        r.removeFromTop(12.0f);
         masterGainLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
-        masterGainSlider_.setBounds(r.removeFromTop(120.0f).toNearestInt());
+        masterGainSlider_.setBounds(r.removeFromTop(135.0f).toNearestInt());
 
-        r.removeFromTop(10.0f);
+        r.removeFromTop(12.0f);
         masterBypassButton_.setBounds(r.removeFromTop(36.0f).reduced(20.0f, 0.0f).toNearestInt());
     }
 }

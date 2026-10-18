@@ -25,16 +25,18 @@ public:
     void processBlock(float* leftChannel, float* rightChannel, int numSamples) noexcept;
 
 private:
-    void updateDecorrelator() noexcept;
+    void updateDecorrelator(double refCrossoverHz) noexcept;
 
     double sampleRate_ = 44100.0;
     double crossoverHz_ = 120.0;
+    double currentCrossoverHz_ = 120.0;
     float targetWidth_ = 0.0f; // Default 0.0 = Mono low-end (mastering classic)
     float currentWidth_ = 0.0f;
     bool bypassed_ = false;
     float currentBypassGain_ = 1.0f; // 1.0 = active, 0.0 = bypassed
     bool soloLow_ = false;
     float currentSoloGain_ = 0.0f; // 1.0 = solo low, 0.0 = full mix
+    bool hasProcessedAudio_ = false;
 
     LinkwitzRiley4 crossoverL_{};
     LinkwitzRiley4 crossoverR_{};

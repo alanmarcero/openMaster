@@ -35,6 +35,7 @@ public:
 
 private:
     void updateCoefficients() noexcept;
+    void updateCoefficientsForFrequency(double cutoffHz) noexcept;
 
     FilterType type_ = FilterType::LowPass;
     FilterSlope slope_ = FilterSlope::Slope24dB;
@@ -42,6 +43,7 @@ private:
     double currentCutoffHz_ = 1000.0;
     double sampleRate_ = 44100.0;
     bool bypassed_ = false;
+    bool hasProcessedAudio_ = false;
     float currentBypassGain_ = 1.0f; // 1.0 = active, 0.0 = bypassed
 
     int activeSections_ = 2;

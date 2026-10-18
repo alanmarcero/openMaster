@@ -13,6 +13,7 @@ struct MeterLevels {
     float vuR = 0.0f;
     bool clipL = false;
     bool clipR = false;
+    float correlation = 1.0f; // -1.0 (out of phase) .. 0.0 (wide/uncorrelated) .. +1.0 (mono/in-phase)
 };
 
 class MasterProcessorCore {
@@ -65,7 +66,8 @@ public:
             meterVuL_.load(std::memory_order_relaxed),
             meterVuR_.load(std::memory_order_relaxed),
             meterClipL_.load(std::memory_order_relaxed),
-            meterClipR_.load(std::memory_order_relaxed)
+            meterClipR_.load(std::memory_order_relaxed),
+            meterCorrelation_.load(std::memory_order_relaxed)
         };
     }
 
@@ -78,6 +80,7 @@ private:
     float currentGainLinear_ = 1.0f;
     bool masterBypassed_ = false;
     float currentMasterBypassGain_ = 1.0f; // 1.0 = power ON, 0.0 = bypassed
+    bool hasProcessedAudio_ = false;
 
     MultiPoleFilter lowCut_{ FilterType::HighPass };
     MultiPoleFilter highCut_{ FilterType::LowPass };
@@ -89,6 +92,7 @@ private:
     std::atomic<float> meterVuR_{ 0.0f };
     std::atomic<bool> meterClipL_{ false };
     std::atomic<bool> meterClipR_{ false };
+    std::atomic<float> meterCorrelation_{ 1.0f };
 };
 
 } // namespace analog_master::core

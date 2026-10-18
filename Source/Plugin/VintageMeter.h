@@ -10,7 +10,7 @@ public:
     VintageMeter();
 
     void setLevels(float levelL, float levelR);
-    void setLevels(float vuL, float vuR, bool clipL, bool clipR);
+    void setLevels(float vuL, float vuR, bool clipL, bool clipR, float correlation = 1.0f);
     void setThemePalette(const ThemePalette& palette);
     void paint(juce::Graphics& g) override;
 
@@ -21,8 +21,11 @@ private:
     float needlePosR_ = 0.0f;
     float needleVelL_ = 0.0f;
     float needleVelR_ = 0.0f;
+    float peakHoldL_ = 0.0f;
+    float peakHoldR_ = 0.0f;
     float clipAmountL_ = 0.0f;
     float clipAmountR_ = 0.0f;
+    float correlation_ = 1.0f;
     ThemePalette palette_ { AnalogLookAndFeel::createPalette(Theme::CyberNeon) };
 };
 

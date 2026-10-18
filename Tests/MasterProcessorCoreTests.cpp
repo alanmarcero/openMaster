@@ -305,3 +305,38 @@ TEST_CASE("MasterProcessorCore High Cut remains spike-free during abrupt 16-pole
     REQUIRE(maxPeak < 0.65f);
 }
 
+TEST_CASE("MasterProcessorCore tracks stereo phase correlation accurately", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setHighCutBypassed(true);
+    processor.setStereoFieldBypassed(true);
+
+    const int numSamples = 4096;
+    std::vector<float> left(numSamples);
+    std::vector<float> right(numSamples);
+
+    // 1. In-phase mono stereo signal (L == R) -> correlation approaches +1.0
+    for (int i = 0; i < numSamples; ++i) {
+        const float s = 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 440.0 * i / fs));
+        left[i] = s;
+        right[i] = s;
+    }
+    for (int b = 0; b < 8; ++b) {
+        processor.processBlock(left.data(), right.data(), numSamples);
+    }
+    REQUIRE(processor.meterLevels().correlation > 0.95f);
+
+    // 2. Out-of-phase stereo signal (L == -R) -> correlation approaches -1.0
+    for (int i = 0; i < numSamples; ++i) {
+        const float s = 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 440.0 * i / fs));
+        left[i] = s;
+        right[i] = -s;
+    }
+    for (int b = 0; b < 12; ++b) {
+        processor.processBlock(left.data(), right.data(), numSamples);
+    }
+    REQUIRE(processor.meterLevels().correlation < -0.90f);
+}
+
