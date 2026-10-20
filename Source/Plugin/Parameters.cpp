@@ -9,7 +9,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         "12 dB/oct",
         "24 dB/oct",
         "48 dB/oct",
-        "64 dB/oct (Hard)",
+        "72 dB/oct (Hard)",
         "96 dB/oct (Brickwall)"
     };
 
@@ -30,7 +30,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         juce::ParameterID{ kLowCutSlope, 1 },
         "Low Cut Slope",
         slopeChoices,
-        3 // Default to 64 dB/oct (Hard)
+        3 // Default to 72 dB/oct (Hard)
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(
@@ -96,7 +96,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         juce::ParameterID{ kHighCutSlope, 1 },
         "High Cut Slope",
         slopeChoices,
-        3 // Default to 64 dB/oct (Hard)
+        3 // Default to 72 dB/oct (Hard)
     ));
 
     layout.add(std::make_unique<juce::AudioParameterBool>(

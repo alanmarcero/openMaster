@@ -2,6 +2,7 @@
 
 #include "MultiPoleFilter.h"
 #include "StereoFieldShaper.h"
+#include <array>
 #include <atomic>
 
 namespace analog_master::core {
@@ -74,6 +75,8 @@ public:
     void processBlock(float* leftChannel, float* rightChannel, int numSamples) noexcept;
 
 private:
+    static constexpr int kBypassFadeSamples = 512;
+
     double sampleRate_ = 44100.0;
     float masterGainDb_ = 0.0f;
     float targetGainLinear_ = 1.0f;
@@ -85,6 +88,8 @@ private:
     MultiPoleFilter lowCut_{ FilterType::HighPass };
     MultiPoleFilter highCut_{ FilterType::LowPass };
     StereoFieldShaper stereoShaper_{};
+    std::array<float, kBypassFadeSamples> dryL_{};
+    std::array<float, kBypassFadeSamples> dryR_{};
 
     std::atomic<float> meterPeakL_{ 0.0f };
     std::atomic<float> meterPeakR_{ 0.0f };

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <complex>
 #include <numbers>
+#include <string>
 
 using namespace analog_master::core;
 
@@ -10,7 +11,7 @@ TEST_CASE("Slope to order mapping is correct", "[butterworth]") {
     REQUIRE(slopeToOrder(FilterSlope::Slope12dB) == 2);
     REQUIRE(slopeToOrder(FilterSlope::Slope24dB) == 4);
     REQUIRE(slopeToOrder(FilterSlope::Slope48dB) == 8);
-    REQUIRE(slopeToOrder(FilterSlope::Slope64dB) == 12);
+    REQUIRE(slopeToOrder(FilterSlope::Slope72dB) == 12);
     REQUIRE(slopeToOrder(FilterSlope::Slope96dB) == 16);
 }
 
@@ -87,7 +88,7 @@ TEST_CASE("FilterDesign stack container semantics and iterators", "[butterworth]
 TEST_CASE("Butterworth 12-pole filter is exactly -3dB at cutoff frequency", "[butterworth]") {
     const double fs = 48000.0;
     const double fc = 1000.0;
-    const int order = 12; // 64 dB/oct nominal
+    const int order = 12; // 72 dB/oct
     auto sections = designButterworthLowPass(fs, fc, order);
 
     const double w = 2.0 * std::numbers::pi * fc / fs;
@@ -103,4 +104,32 @@ TEST_CASE("Butterworth 12-pole filter is exactly -3dB at cutoff frequency", "[bu
     double magDb = 20.0 * std::log10(std::abs(resp));
     // At Butterworth cutoff, attenuation must be exactly -3.0103 dB
     REQUIRE(std::abs(magDb - (-3.0103)) < 0.01);
+}
+
+TEST_CASE("Butterworth stopband slope matches each slope label", "[butterworth]") {
+    const double fs = 48000.0;
+    const double fc = 500.0;
+
+    auto gainDb = [&](int order, double f) {
+        const auto sections = designButterworthHighPass(fs, fc, order);
+        const std::complex<double> z = std::polar(1.0, 2.0 * std::numbers::pi * f / fs);
+        std::complex<double> resp = 1.0;
+        for (const auto& s : sections) {
+            resp *= (s.b0 + s.b1 / z + s.b2 / (z * z)) / (1.0 + s.a1 / z + s.a2 / (z * z));
+        }
+        return 20.0 * std::log10(std::abs(resp));
+    };
+
+    // An order-N Butterworth falls 6N dB per octave in the stopband.
+    auto slopeDbPerOct = [&](FilterSlope slope) {
+        const int order = slopeToOrder(slope);
+        return gainDb(order, fc / 4.0) - gainDb(order, fc / 8.0);
+    };
+
+    REQUIRE(std::abs(slopeDbPerOct(FilterSlope::Slope12dB) - 12.0) < 0.5);
+    REQUIRE(std::abs(slopeDbPerOct(FilterSlope::Slope24dB) - 24.0) < 0.5);
+    REQUIRE(std::abs(slopeDbPerOct(FilterSlope::Slope48dB) - 48.0) < 0.5);
+    REQUIRE(std::abs(slopeDbPerOct(FilterSlope::Slope72dB) - 72.0) < 0.5);
+    REQUIRE(std::abs(slopeDbPerOct(FilterSlope::Slope96dB) - 96.0) < 0.5);
+    REQUIRE(std::string(slopeToString(FilterSlope::Slope72dB)) == "72 dB/oct");
 }

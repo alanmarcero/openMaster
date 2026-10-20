@@ -25,8 +25,6 @@ public:
     void processBlock(float* leftChannel, float* rightChannel, int numSamples) noexcept;
 
 private:
-    void updateDecorrelator(double refCrossoverHz) noexcept;
-
     double sampleRate_ = 44100.0;
     double crossoverHz_ = 120.0;
     double currentCrossoverHz_ = 120.0;
@@ -40,7 +38,6 @@ private:
 
     LinkwitzRiley4 crossoverL_{};
     LinkwitzRiley4 crossoverR_{};
-    std::array<BiquadFilter, 4> decorrelator_{};
 };
 
 } // namespace analog_master::core

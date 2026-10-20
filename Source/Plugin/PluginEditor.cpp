@@ -38,7 +38,7 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
         addAndMakeVisible(l);
     };
 
-    const juce::StringArray slopeLabels { "12 dB/OCT", "24 dB/OCT", "48 dB/OCT", "64 dB HARD", "96 dB BRICK" };
+    const juce::StringArray slopeLabels { "12 dB/OCT", "24 dB/OCT", "48 dB/OCT", "72 dB HARD", "96 dB BRICK" };
 
     // 0. Look / Theme Switcher in Header (5 Cyberpunk Themes)
     const juce::StringArray themeChoices {
@@ -257,7 +257,7 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
 
     const char* moduleTags[4] = {
         "MOD 01 // SUB-BASS HPF",
-        "MOD 02 // ALLPASS M/S FIELD",
+        "MOD 02 // M/S FIELD",
         "MOD 03 // HARMONIC LPF",
         "MOD 04 // OUTPUT & TELEMETRY"
     };
@@ -276,8 +276,8 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
         powerOn
     };
 
-    constexpr int kPolesPerSlope[5] = { 2, 4, 8, 10, 16 };
-    constexpr int kDbPerOct[5] = { 12, 24, 48, 64, 96 };
+    constexpr int kPolesPerSlope[5] = { 2, 4, 8, 12, 16 };
+    constexpr int kDbPerOct[5] = { 12, 24, 48, 72, 96 };
 
     for (int i = 0; i < 4; ++i) {
         const float sx = sectionMargin + static_cast<float>(i) * (sectionW + sectionSpacing);
@@ -424,7 +424,7 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
 
                 g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
                 g.setColour(soloLow ? pal.meterRedZone : pal.headerTitle.withAlpha(0.85f));
-                juce::String modeTag = soloLow ? "SOLO LOW" : (widthPct < 5.0f ? "MONO SUB" : (widthPct > 105.0f ? "ALLPASS WIDE" : "M/S CONTOUR"));
+                juce::String modeTag = soloLow ? "SOLO LOW" : (widthPct < 5.0f ? "MONO SUB" : (widthPct > 105.0f ? "M/S WIDE" : "M/S CONTOUR"));
                 g.drawText(juce::String(static_cast<int>(xoverHz)) + " Hz // " + modeTag,
                            dispRect.reduced(6.0f, 3.0f).toNearestInt(), juce::Justification::bottomRight);
             }

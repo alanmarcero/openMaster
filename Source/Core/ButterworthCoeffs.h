@@ -11,7 +11,7 @@ enum class FilterSlope : uint8_t {
     Slope12dB = 0,
     Slope24dB,
     Slope48dB,
-    Slope64dB,
+    Slope72dB,
     Slope96dB
 };
 

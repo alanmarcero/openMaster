@@ -158,19 +158,19 @@ TEST_CASE("StereoFieldShaper solo low band mutes high frequencies", "[stereo]") 
     REQUIRE(highPeak < 0.01f);
 }
 
-TEST_CASE("StereoFieldShaper expands mono/center-panned low frequencies when width > 1.0 while remaining 100% mono-compatible", "[stereo]") {
+TEST_CASE("StereoFieldShaper keeps mono low frequencies centered when width is 2.0", "[stereo]") {
     const double fs = 48000.0;
     StereoFieldShaper shaper;
     shaper.prepare(fs);
     shaper.setCrossoverFrequency(150.0);
     shaper.setWidth(2.0f); // 200% Enhanced stereo
 
-    const double freq = 60.0;
-    const int numSamples = 4000;
+    const double freq = 40.0;
+    const int numSamples = 8000;
     std::vector<float> left(numSamples);
     std::vector<float> right(numSamples);
 
-    // Pure mono / center-panned 60 Hz sub-bass (L == R)
+    // Pure mono / center-panned 40 Hz sub-bass (L == R)
     for (int i = 0; i < numSamples; ++i) {
         float val = static_cast<float>(std::sin(2.0 * std::numbers::pi * freq * i / fs));
         left[i] = val;
@@ -181,13 +181,12 @@ TEST_CASE("StereoFieldShaper expands mono/center-panned low frequencies when wid
 
     float maxStereoDiff = 0.0f;
     float maxMonoPeak = 0.0f;
-    for (int i = 2000; i < numSamples; ++i) {
+    for (int i = 4000; i < numSamples; ++i) {
         maxStereoDiff = std::max(maxStereoDiff, std::abs(left[i] - right[i]));
         maxMonoPeak = std::max(maxMonoPeak, std::abs(0.5f * (left[i] + right[i])));
     }
 
-    // Must synthesize substantial stereo width (L != R) even when the low-end input was 100% mono
-    REQUIRE(maxStereoDiff > 0.7f);
-    // Summing L+R back to mono must cancel the synthesized side component with zero comb filtering
+    // A centered bass must stay centered.
+    REQUIRE(maxStereoDiff < 1e-4f);
     REQUIRE_THAT(maxMonoPeak, WithinAbs(1.0f, 0.02f));
 }

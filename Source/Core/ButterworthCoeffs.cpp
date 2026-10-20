@@ -9,7 +9,7 @@ int slopeToOrder(FilterSlope slope) noexcept {
         case FilterSlope::Slope12dB: return 2;
         case FilterSlope::Slope24dB: return 4;
         case FilterSlope::Slope48dB: return 8;
-        case FilterSlope::Slope64dB: return 12;
+        case FilterSlope::Slope72dB: return 12;
         case FilterSlope::Slope96dB: return 16;
     }
     return 4;
@@ -20,7 +20,7 @@ const char* slopeToString(FilterSlope slope) noexcept {
         case FilterSlope::Slope12dB: return "12 dB/oct";
         case FilterSlope::Slope24dB: return "24 dB/oct";
         case FilterSlope::Slope48dB: return "48 dB/oct";
-        case FilterSlope::Slope64dB: return "64 dB/oct";
+        case FilterSlope::Slope72dB: return "72 dB/oct";
         case FilterSlope::Slope96dB: return "96 dB/oct";
     }
     return "24 dB/oct";

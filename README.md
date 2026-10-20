@@ -55,7 +55,7 @@ Use the real-time **THEME** selector in the top header to switch between **5 Cyb
   - `12 dB/oct` (2-pole Butterworth)
   - `24 dB/oct` (4-pole Butterworth)
   - `48 dB/oct` (8-pole Butterworth)
-  - `64 dB/oct` (12-pole cascaded Butterworth — ultra-hard slope)
+  - `72 dB/oct` (12-pole cascaded Butterworth — ultra-hard slope)
   - `96 dB/oct` (16-pole cascaded Butterworth — extreme brickwall)
 - Eliminates sub-audible DC rumble and frees up precious mastering headroom with zero passband ripple.
 - **Dedicated IN Bypass Switch:** Toggle switch with glowing jewel pilot lamp to A/B sub-bass cleanup instantly.
@@ -73,7 +73,7 @@ Use the real-time **THEME** selector in the top header to switch between **5 Cyb
 ### 3. Ultra-Steep High Cut EQ
 - **Frequency Dial:** Range from 8 kHz to 24 kHz (nominal 20 kHz default, silk-screened at `8`, `12`, `15`, `20`, `24` kHz).
 - **Hard Slope Cutoff:** Configurable slopes:
-  - `12 dB/oct`, `24 dB/oct`, `48 dB/oct`, `64 dB/oct (Hard)`, `96 dB/oct (Brickwall)`.
+  - `12 dB/oct`, `24 dB/oct`, `48 dB/oct`, `72 dB/oct (Hard)`, `96 dB/oct (Brickwall)`.
 - Removes harsh ultrasonic frequencies, aliasing, and digital sheen above the human audible spectrum.
 - **Dedicated IN Bypass Switch:** Toggle switch with glowing jewel pilot lamp to audition air contouring.
 

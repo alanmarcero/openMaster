@@ -10,14 +10,14 @@ using Catch::Matchers::WithinAbs;
 
 TEST_CASE("MasterProcessorCore defaults match mastering specifications", "[master]") {
     MasterProcessorCore processor;
-    // Low cut: 20 Hz, slope 64 dB/oct
+    // Low cut: 20 Hz, slope 72 dB/oct
     REQUIRE(processor.lowCutFrequency() == 20.0);
-    REQUIRE(processor.lowCutSlope() == FilterSlope::Slope64dB);
+    REQUIRE(processor.lowCutSlope() == FilterSlope::Slope72dB);
     REQUIRE_FALSE(processor.isLowCutBypassed());
 
-    // High cut: 20000 Hz, slope 64 dB/oct
+    // High cut: 20000 Hz, slope 72 dB/oct
     REQUIRE(processor.highCutFrequency() == 20000.0);
-    REQUIRE(processor.highCutSlope() == FilterSlope::Slope64dB);
+    REQUIRE(processor.highCutSlope() == FilterSlope::Slope72dB);
     REQUIRE_FALSE(processor.isHighCutBypassed());
 
     // Low-end stereo: 120 Hz crossover, width 0.0 (Mono)
@@ -31,7 +31,7 @@ TEST_CASE("MasterProcessorCore cuts sub-audible DC rumble", "[master]") {
     MasterProcessorCore processor;
     processor.prepare(fs);
     processor.setLowCutFrequency(20.0);
-    processor.setLowCutSlope(FilterSlope::Slope64dB);
+    processor.setLowCutSlope(FilterSlope::Slope72dB);
 
     // Feed 5 Hz sub-rumble tone for multiple full cycles
     const int numSamples = 24000; // 0.5s, 2.5 complete cycles of 5 Hz
@@ -52,7 +52,7 @@ TEST_CASE("MasterProcessorCore cuts sub-audible DC rumble", "[master]") {
         peakRemaining = std::max(peakRemaining, std::abs(left[i]));
     }
 
-    // Sub-audible 5 Hz (2 octaves below 20Hz at 64 dB/oct) should be heavily attenuated
+    // Sub-audible 5 Hz (2 octaves below 20Hz at 72 dB/oct) should be heavily attenuated
     REQUIRE(peakRemaining < 0.01f);
 }
 
@@ -61,7 +61,7 @@ TEST_CASE("MasterProcessorCore cuts ultrasonic noise above 20kHz", "[master]") {
     MasterProcessorCore processor;
     processor.prepare(fs);
     processor.setHighCutFrequency(20000.0);
-    processor.setHighCutSlope(FilterSlope::Slope64dB);
+    processor.setHighCutSlope(FilterSlope::Slope72dB);
 
     // Feed 35 kHz ultrasonic tone
     const int numSamples = 4800;
@@ -201,7 +201,7 @@ TEST_CASE("MasterProcessorCore slope changes during playback remain stable", "[m
         FilterSlope::Slope12dB,
         FilterSlope::Slope96dB,
         FilterSlope::Slope24dB,
-        FilterSlope::Slope64dB,
+        FilterSlope::Slope72dB,
         FilterSlope::Slope48dB
     };
 
@@ -340,3 +340,61 @@ TEST_CASE("MasterProcessorCore tracks stereo phase correlation accurately", "[ma
     REQUIRE(processor.meterLevels().correlation < -0.90f);
 }
 
+
+TEST_CASE("MasterProcessorCore crossfades master bypass without a step click", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setStereoFieldWidth(1.0f);
+
+    const int blockSize = 512;
+    const int numBlocks = 12;
+    std::vector<float> left(blockSize * numBlocks);
+    std::vector<float> right(blockSize * numBlocks);
+    for (size_t i = 0; i < left.size(); ++i) {
+        left[i] = 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 100.0 * static_cast<double>(i) / fs));
+        right[i] = left[i];
+    }
+    const std::vector<float> dry = left;
+
+    for (int b = 0; b < numBlocks; ++b) {
+        processor.setMasterBypassed(b >= 4 && b < 8);
+        processor.processBlock(left.data() + b * blockSize, right.data() + b * blockSize, blockSize);
+    }
+
+    // The clean sine changes at most 0.0066 per sample.
+    float maxStep = 0.0f;
+    for (int i = blockSize; i < blockSize * numBlocks; ++i) {
+        maxStep = std::max(maxStep, std::abs(left[i] - left[i - 1]));
+    }
+    REQUIRE(maxStep < 0.01f);
+
+    // After the fade-out, the bypassed samples are dry.
+    for (int i = 5 * blockSize; i < 8 * blockSize; ++i) {
+        REQUIRE(left[i] == dry[i]);
+    }
+}
+
+TEST_CASE("MasterProcessorCore VU reaches 99 percent of a step within 300 ms", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setHighCutBypassed(true);
+    processor.setStereoFieldBypassed(true);
+
+    auto runSine = [&](int numSamples) {
+        std::vector<float> left(numSamples);
+        std::vector<float> right(numSamples);
+        for (int i = 0; i < numSamples; ++i) {
+            left[i] = static_cast<float>(std::sin(2.0 * std::numbers::pi * 1000.0 * i / fs));
+            right[i] = left[i];
+        }
+        processor.processBlock(left.data(), right.data(), numSamples);
+        return processor.meterLevels().vuL;
+    };
+
+    // 250 ms: below 99%. 300 ms: at 99%.
+    REQUIRE(runSine(12000) < 0.99f);
+    REQUIRE(runSine(2400) >= 0.985f);
+}
