@@ -5,7 +5,7 @@ AnalogMasterProcessor::AnalogMasterProcessor()
     : AudioProcessor(BusesProperties()
                      .withInput("Input", juce::AudioChannelSet::stereo(), true)
                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      parameters(*this, nullptr, juce::Identifier("AnalogMasterParameters"), analog_master::params::createParameterLayout()) {
+      parameters(*this, nullptr, juce::Identifier("OpenMasterParameters"), analog_master::params::createParameterLayout()) {
 }
 
 void AnalogMasterProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/) {

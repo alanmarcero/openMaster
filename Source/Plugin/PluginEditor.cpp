@@ -237,7 +237,7 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
 
     g.setColour(pal.headerTitle);
     g.setFont(juce::FontOptions(18.0f, juce::Font::bold));
-    g.drawText("ANALOG MASTER STRIP", titlePlate.withHeight(26.0f).translated(0.0f, 2.0f), juce::Justification::centred);
+    g.drawText("openMaster", titlePlate.withHeight(26.0f).translated(0.0f, 2.0f), juce::Justification::centred);
     g.setColour(pal.accentPrimary);
     g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
     g.drawText("LOW CUT  /  LOW-END STEREO  /  HIGH CUT", titlePlate.withTrimmedTop(27.0f).withHeight(13.0f), juce::Justification::centred);

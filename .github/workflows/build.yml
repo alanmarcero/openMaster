@@ -16,7 +16,7 @@ jobs:
   macos:
     runs-on: macos-14
     env:
-      BUNDLE: build/AnalogMasterStrip_artefacts/Release/VST3/Analog Master Strip.vst3
+      BUNDLE: build/openMaster_artefacts/Release/VST3/openMaster.vst3
     steps:
       - uses: actions/checkout@v4
 
@@ -39,17 +39,17 @@ jobs:
           ./pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --validate "$BUNDLE"
 
       - name: Package
-        run: ditto -c -k --keepParent "$BUNDLE" AnalogMasterStrip-VST3-macOS.zip
+        run: ditto -c -k --keepParent "$BUNDLE" openMaster-VST3-macOS.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AnalogMasterStrip-VST3-macOS
-          path: AnalogMasterStrip-VST3-macOS.zip
+          name: openMaster-VST3-macOS
+          path: openMaster-VST3-macOS.zip
 
   windows:
     runs-on: windows-latest
     env:
-      BUNDLE: build/AnalogMasterStrip_artefacts/Release/VST3/Analog Master Strip.vst3
+      BUNDLE: build/openMaster_artefacts/Release/VST3/openMaster.vst3
     steps:
       - uses: actions/checkout@v4
 
@@ -69,9 +69,9 @@ jobs:
           ./pluginval/pluginval.exe --strictness-level 5 --validate "$env:BUNDLE"
 
       - name: Package
-        run: Compress-Archive -Path "$env:BUNDLE" -DestinationPath AnalogMasterStrip-VST3-Windows.zip
+        run: Compress-Archive -Path "$env:BUNDLE" -DestinationPath openMaster-VST3-Windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AnalogMasterStrip-VST3-Windows
-          path: AnalogMasterStrip-VST3-Windows.zip
+          name: openMaster-VST3-Windows
+          path: openMaster-VST3-Windows.zip

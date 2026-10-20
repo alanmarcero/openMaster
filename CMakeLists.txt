@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(AnalogMasterStrip VERSION 1.0.0 LANGUAGES C CXX)
+project(openMaster VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,7 +14,7 @@ option(AMS_BUILD_TESTS "Build the unit tests" ON)
 
 include(FetchContent)
 
-add_library(analog_master_core STATIC
+add_library(open_master_core STATIC
     Source/Core/BiquadFilter.cpp
     Source/Core/ButterworthCoeffs.cpp
     Source/Core/MultiPoleFilter.cpp
@@ -22,8 +22,8 @@ add_library(analog_master_core STATIC
     Source/Core/StereoFieldShaper.cpp
     Source/Core/MasterProcessorCore.cpp
 )
-target_include_directories(analog_master_core PUBLIC Source/Core)
-set_target_properties(analog_master_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(open_master_core PUBLIC Source/Core)
+set_target_properties(open_master_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(AMS_BUILD_PLUGIN)
     FetchContent_Declare(juce
@@ -32,18 +32,18 @@ if(AMS_BUILD_PLUGIN)
         GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(juce)
 
-    juce_add_binary_data(AnalogMasterAssets
+    juce_add_binary_data(OpenMasterAssets
         SOURCES
             assets/alan_marcero_logo.jpg
             assets/cyber_chassis_backdrop.jpg)
-    set_target_properties(AnalogMasterAssets PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    set_target_properties(OpenMasterAssets PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-    juce_add_plugin(AnalogMasterStrip
+    juce_add_plugin(openMaster
         COMPANY_NAME "Alan Marcero"
-        BUNDLE_ID "com.alanmarcero.analogmasterstrip"
-        PRODUCT_NAME "Analog Master Strip"
+        BUNDLE_ID "com.alanmarcero.openmaster"
+        PRODUCT_NAME "openMaster"
         PLUGIN_MANUFACTURER_CODE Amrc
-        PLUGIN_CODE Amst
+        PLUGIN_CODE Omst
         FORMATS VST3
         VST3_CATEGORIES Fx Mastering EQ
         IS_SYNTH FALSE
@@ -53,26 +53,26 @@ if(AMS_BUILD_PLUGIN)
         EDITOR_WANTS_KEYBOARD_FOCUS FALSE
         COPY_PLUGIN_AFTER_BUILD FALSE)
 
-    target_sources(AnalogMasterStrip PRIVATE
+    target_sources(openMaster PRIVATE
         Source/Plugin/Parameters.cpp
         Source/Plugin/AnalogLookAndFeel.cpp
         Source/Plugin/VintageMeter.cpp
         Source/Plugin/PluginProcessor.cpp
         Source/Plugin/PluginEditor.cpp)
 
-    target_include_directories(AnalogMasterStrip PRIVATE
+    target_include_directories(openMaster PRIVATE
         Source/Core
         Source/Plugin)
 
-    target_compile_definitions(AnalogMasterStrip PUBLIC
+    target_compile_definitions(openMaster PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0)
 
-    target_link_libraries(AnalogMasterStrip
+    target_link_libraries(openMaster
         PRIVATE
-            analog_master_core
-            AnalogMasterAssets
+            open_master_core
+            OpenMasterAssets
             juce::juce_audio_processors
             juce::juce_audio_utils
             juce::juce_gui_basics
@@ -89,15 +89,15 @@ if(AMS_BUILD_TESTS)
         GIT_SHALLOW TRUE)
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(analog_master_tests
+    add_executable(open_master_tests
         Tests/BiquadFilterTests.cpp
         Tests/ButterworthCoeffsTests.cpp
         Tests/StereoFieldShaperTests.cpp
         Tests/MasterProcessorCoreTests.cpp)
 
-    target_link_libraries(analog_master_tests PRIVATE analog_master_core Catch2::Catch2WithMain)
+    target_link_libraries(open_master_tests PRIVATE open_master_core Catch2::Catch2WithMain)
 
     enable_testing()
     include(Catch)
-    catch_discover_tests(analog_master_tests)
+    catch_discover_tests(open_master_tests)
 endif()
