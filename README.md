@@ -79,7 +79,8 @@ Use the real-time **THEME** selector in the top header to switch between **5 Cyb
 
 ### 4. Master Output & Analog Metering
 - **Master Trim:** Continuous ±18 dB analog output gain.
-- **Twin Vintage VU Meters:** Ballistic Left/Right peak needle meters with backlit faceplates and overload indicator zones, dynamically colored per theme.
+- **Twin VU Meters:** Left and right VU needles with IEC 60268-17 ballistics (99% of a step in 300 ms). Each needle averages the rectified signal and reads a sine's RMS against the **VU Reference** (0 VU = -8 to -20 dBFS, default -14 dBFS). Each meter also shows the held sample peak in dBFS and a CLIP lamp.
+- **Phase Correlation Bar:** -1 (out of phase) to +1 (mono). It uses the same time constant as the VU, whatever the host buffer size.
 - **Global Power / Master Bypass Switch.**
 
 ### 5. Multi-Look Vintage Faceplate Switcher (4 Selectable Aesthetics)
