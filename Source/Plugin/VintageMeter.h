@@ -1,30 +1,36 @@
 #pragma once
 
 #include "AnalogLookAndFeel.h"
+#include "MasterProcessorCore.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace analog_master::ui {
 
+// Twin VU meters above a stereo phase correlation bar.
+// The needle shows the VU level. The tick on the arc shows the held sample peak.
 class VintageMeter : public juce::Component {
 public:
     VintageMeter();
 
-    void setLevels(float levelL, float levelR);
-    void setLevels(float vuL, float vuR, bool clipL, bool clipR, float correlation = 1.0f);
+    // The peak hold counts calls at 30 Hz
+    void setLevels(const core::MeterLevels& levels);
     void setThemePalette(const ThemePalette& palette);
     void paint(juce::Graphics& g) override;
 
 private:
-    float targetL_ = 0.0f;
-    float targetR_ = 0.0f;
-    float needlePosL_ = 0.0f;
-    float needlePosR_ = 0.0f;
-    float needleVelL_ = 0.0f;
-    float needleVelR_ = 0.0f;
-    float peakHoldL_ = 0.0f;
-    float peakHoldR_ = 0.0f;
-    float clipAmountL_ = 0.0f;
-    float clipAmountR_ = 0.0f;
+    struct ChannelState {
+        float vuDb = -60.0f;
+        float peakHoldDb = -60.0f;
+        int peakHoldFrames = 0;
+        float clipGlow = 0.0f;
+    };
+
+    static void updateChannel(ChannelState& state, float vu, float peak, bool clip);
+    void paintChannel(juce::Graphics& g, juce::Rectangle<float> area, const ChannelState& state, const juce::String& name) const;
+    void paintCorrelation(juce::Graphics& g, juce::Rectangle<float> area) const;
+
+    ChannelState left_;
+    ChannelState right_;
     float correlation_ = 1.0f;
     ThemePalette palette_ { AnalogLookAndFeel::createPalette(Theme::CyberNeon) };
 };

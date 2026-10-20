@@ -224,8 +224,13 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
     meterPeakR_.store(currentPeakR, std::memory_order_relaxed);
     meterVuL_.store(currentVuL, std::memory_order_relaxed);
     meterVuR_.store(currentVuR, std::memory_order_relaxed);
-    meterClipL_.store(blockPeakL >= 0.999f, std::memory_order_relaxed);
-    meterClipR_.store(blockPeakR >= 0.999f, std::memory_order_relaxed);
+    // Clip flags latch until takeMeterLevels() reads them
+    if (blockPeakL >= 0.999f) {
+        meterClipL_.store(true, std::memory_order_relaxed);
+    }
+    if (blockPeakR >= 0.999f) {
+        meterClipR_.store(true, std::memory_order_relaxed);
+    }
     meterCorrelation_.store(currentCorr, std::memory_order_relaxed);
 }
 

@@ -6,8 +6,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 class AnalogMasterEditor final : public juce::AudioProcessorEditor,
-                                  private juce::Timer,
-                                  private juce::AudioProcessorValueTreeState::Listener {
+                                  private juce::Timer {
 public:
     explicit AnalogMasterEditor(AnalogMasterProcessor& owner);
     ~AnalogMasterEditor() override;
@@ -17,50 +16,49 @@ public:
 
 private:
     void timerCallback() override;
-    void parameterChanged(const juce::String& parameterID, float newValue) override;
     void applyTheme(int themeIndex);
+    void paintModuleBay(juce::Graphics& g, int index, juce::Rectangle<float> bay, bool active) const;
+    void paintFilterDisplay(juce::Graphics& g, juce::Rectangle<float> area, bool isHighPass, bool active) const;
+    void paintStereoDisplay(juce::Graphics& g, juce::Rectangle<float> area, bool active) const;
+    [[nodiscard]] juce::Rectangle<float> moduleBayBounds(int index) const;
 
     AnalogMasterProcessor& processor_;
     analog_master::ui::AnalogLookAndFeel lookAndFeel_;
 
-    // Embedded Gemini-generated Custom Logo & Cyberpunk Chassis Backdrop
-    juce::Image customLogoImage_;
+    juce::Image logoImage_;
     juce::Image backdropImage_;
 
-    // Header Look / Theme Selector
     juce::ComboBox themeBox_;
-    juce::Label themeLabel_{ {}, "LOOK" };
+    juce::Label themeLabel_;
 
-    // UI Controls (Same controls, completely redesigned Cyberpunk UI)
     // 1. Low Cut
     juce::Slider lowCutFreqSlider_;
     juce::ComboBox lowCutSlopeBox_;
-    juce::ToggleButton lowCutBypassButton_{ "IN" };
-    juce::Label lowCutFreqLabel_{ {}, "FREQ" };
-    juce::Label lowCutSlopeLabel_{ {}, "SLOPE" };
+    juce::ToggleButton lowCutBypassButton_;
+    juce::Label lowCutFreqLabel_;
+    juce::Label lowCutSlopeLabel_;
 
-    // 2. Low Stereo Field
-    juce::Slider stereoFreqSlider_;
+    // 2. Low-End Stereo Field
     juce::Slider stereoWidthSlider_;
-    juce::ToggleButton stereoBypassButton_{ "IN" };
-    juce::ToggleButton stereoSoloButton_{ "SOLO" };
-    juce::Label stereoFreqLabel_{ {}, "X-OVER" };
-    juce::Label stereoWidthLabel_{ {}, "WIDTH" };
+    juce::Slider stereoFreqSlider_;
+    juce::ToggleButton stereoBypassButton_;
+    juce::ToggleButton stereoSoloButton_;
+    juce::Label stereoWidthLabel_;
+    juce::Label stereoFreqLabel_;
 
     // 3. High Cut
     juce::Slider highCutFreqSlider_;
     juce::ComboBox highCutSlopeBox_;
-    juce::ToggleButton highCutBypassButton_{ "IN" };
-    juce::Label highCutFreqLabel_{ {}, "FREQ" };
-    juce::Label highCutSlopeLabel_{ {}, "SLOPE" };
+    juce::ToggleButton highCutBypassButton_;
+    juce::Label highCutFreqLabel_;
+    juce::Label highCutSlopeLabel_;
 
-    // 4. Master Output & Meter
-    juce::Slider masterGainSlider_;
-    juce::ToggleButton masterBypassButton_{ "POWER" };
-    juce::Label masterGainLabel_{ {}, "TRIM" };
+    // 4. Master Output & Meters
     analog_master::ui::VintageMeter meter_;
+    juce::Slider masterGainSlider_;
+    juce::ToggleButton masterPowerButton_;
+    juce::Label masterGainLabel_;
 
-    // APVTS Attachments
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
@@ -81,7 +79,7 @@ private:
     std::unique_ptr<ButtonAttachment> highCutBypassAttach_;
 
     std::unique_ptr<SliderAttachment> masterGainAttach_;
-    std::unique_ptr<ButtonAttachment> masterBypassAttach_;
+    std::unique_ptr<ButtonAttachment> masterPowerAttach_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnalogMasterEditor)
 };

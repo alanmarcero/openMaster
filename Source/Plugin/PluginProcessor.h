@@ -32,8 +32,8 @@ public:
     void getStateInformation(juce::MemoryBlock& destination) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    [[nodiscard]] analog_master::core::MeterLevels meterLevels() const noexcept {
-        return core_.meterLevels();
+    [[nodiscard]] analog_master::core::MeterLevels takeMeterLevels() noexcept {
+        return core_.takeMeterLevels();
     }
 
     juce::AudioProcessorValueTreeState parameters;

@@ -72,6 +72,14 @@ public:
         };
     }
 
+    // Reads the levels and clears the clip latches
+    [[nodiscard]] MeterLevels takeMeterLevels() noexcept {
+        auto levels = meterLevels();
+        levels.clipL = meterClipL_.exchange(false, std::memory_order_relaxed);
+        levels.clipR = meterClipR_.exchange(false, std::memory_order_relaxed);
+        return levels;
+    }
+
     void processBlock(float* leftChannel, float* rightChannel, int numSamples) noexcept;
 
 private:

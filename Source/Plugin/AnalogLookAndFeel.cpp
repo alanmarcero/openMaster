@@ -443,68 +443,53 @@ void AnalogLookAndFeel::drawRotarySlider(
     float rotaryStartAngle, float rotaryEndAngle,
     juce::Slider& slider
 ) {
-    auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
-                                         static_cast<float>(width), static_cast<float>(height)).reduced(10.0f, 6.0f);
+    const auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
+                                               static_cast<float>(width), static_cast<float>(height));
 
-    const float radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.44f;
+    constexpr float kLabelMargin = 21.0f;
+    const float radius = std::max(8.0f, std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f - kLabelMargin);
     const float centreX = bounds.getCentreX();
-    const float centreY = bounds.getCentreY() + 1.0f;
+    const float centreY = bounds.getCentreY();
     const float currentAngle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
 
-    // 1. Cyber Scale Readout Labels & Illuminated Tick Ring
-    juce::StringArray tickLabels;
-    const double maxVal = slider.getMaximum();
-    const double minVal = slider.getMinimum();
-    if (maxVal > 5000.0) {
-        tickLabels = { "8k", "12k", "16k", "20k", "24k" };
-    } else if (maxVal > 300.0) {
-        tickLabels = { "40", "90", "160", "280", "500" };
-    } else if (minVal < 0.0) {
-        tickLabels = { "-18", "-9", "0dB", "+9", "+18" };
-    } else if (maxVal >= 199.0 && minVal < 1.0) {
-        tickLabels = { "MONO", "50%", "100%", "150%", "200%" };
-    } else {
-        tickLabels = { "10", "25", "55", "110", "200" };
+    auto pointAt = [&](float r, float angle) {
+        return juce::Point<float>(centreX + r * std::sin(angle), centreY - r * std::cos(angle));
+    };
+
+    // 1. Minor tick ring
+    constexpr int kMinorTicks = 31;
+    for (int i = 0; i < kMinorTicks; ++i) {
+        const float norm = static_cast<float>(i) / static_cast<float>(kMinorTicks - 1);
+        const float angle = rotaryStartAngle + norm * (rotaryEndAngle - rotaryStartAngle);
+        const bool lit = norm <= sliderPosProportional + 0.002f;
+        g.setColour(lit ? palette_.accentPrimary.interpolatedWith(palette_.accentSecondary, norm).withAlpha(0.8f)
+                        : palette_.knobTick.withAlpha(0.28f));
+        g.drawLine(juce::Line<float>(pointAt(radius + 4.0f, angle), pointAt(radius + 7.0f, angle)), 1.0f);
     }
 
-    constexpr int numTicks = 21;
-    for (int i = 0; i < numTicks; ++i) {
-        const float norm = static_cast<float>(i) / static_cast<float>(numTicks - 1);
-        const float tickAngle = rotaryStartAngle + (rotaryEndAngle - rotaryStartAngle) * norm;
-        const float cosA = std::cos(tickAngle - std::numbers::pi_v<float> * 0.5f);
-        const float sinA = std::sin(tickAngle - std::numbers::pi_v<float> * 0.5f);
+    // 2. Scale labels, placed through the slider's skewed range
+    const auto* scaleValues = slider.getProperties()["scaleValues"].getArray();
+    const auto* scaleLabels = slider.getProperties()["scaleLabels"].getArray();
+    if (scaleValues != nullptr && scaleLabels != nullptr) {
+        g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+        for (int i = 0; i < std::min(scaleValues->size(), scaleLabels->size()); ++i) {
+            const double value = static_cast<double>((*scaleValues)[i]);
+            const float norm = static_cast<float>(slider.valueToProportionOfLength(value));
+            const float angle = rotaryStartAngle + norm * (rotaryEndAngle - rotaryStartAngle);
+            const bool lit = norm <= sliderPosProportional + 0.002f;
 
-        const bool isMajor = (i % 5 == 0);
-        const bool isLit = (norm <= sliderPosProportional + 0.005f);
-        const float innerR = radius + 4.5f;
-        const float outerR = radius + (isMajor ? 9.5f : 7.0f);
+            g.setColour(lit ? palette_.accentPrimary : palette_.knobTick.withAlpha(0.7f));
+            g.drawLine(juce::Line<float>(pointAt(radius + 3.5f, angle), pointAt(radius + 10.0f, angle)), 1.6f);
 
-        juce::Colour tickCol = isLit
-            ? palette_.accentPrimary.interpolatedWith(palette_.accentSecondary, norm)
-            : palette_.knobTick.withAlpha(isMajor ? 0.55f : 0.28f);
-        g.setColour(tickCol);
-        g.drawLine(centreX + innerR * cosA, centreY + innerR * sinA,
-                   centreX + outerR * cosA, centreY + outerR * sinA, isMajor ? 1.5f : 1.0f);
-
-        if (isMajor) {
-            const int labelIdx = i / 5;
-            if (labelIdx >= 0 && labelIdx < tickLabels.size()) {
-                const float labelR = radius + 17.5f;
-                const float lx = centreX + labelR * cosA;
-                const float ly = centreY + labelR * sinA;
-                g.setColour(isLit ? palette_.headerTitle : palette_.knobTick.withAlpha(0.75f));
-                g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
-                g.drawText(tickLabels[labelIdx],
-                           static_cast<int>(lx - 15.0f),
-                           static_cast<int>(ly - 5.0f),
-                           30, 10,
-                           juce::Justification::centred, false);
-            }
+            g.setColour(lit ? palette_.headerTitle : palette_.knobTick);
+            g.drawText((*scaleLabels)[i].toString(),
+                       juce::Rectangle<float>(34.0f, 10.0f).withCentre(pointAt(radius + 15.5f, angle)),
+                       juce::Justification::centred, false);
         }
     }
 
-    // 2. Glowing Cyber Neon Value Arc Track
-    const float arcRadius = radius + 1.5f;
+    // 3. Value arc
+    const float arcRadius = radius + 1.0f;
     juce::Path bgArc;
     bgArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
     g.setColour(palette_.switchSlotBg.brighter(0.15f));
@@ -513,79 +498,55 @@ void AnalogLookAndFeel::drawRotarySlider(
     if (sliderPosProportional > 0.004f) {
         juce::Path valArc;
         valArc.addCentredArc(centreX, centreY, arcRadius, arcRadius, 0.0f, rotaryStartAngle, currentAngle, true);
-
+        g.setColour(palette_.accentPrimary.withAlpha(0.24f));
+        g.strokePath(valArc, juce::PathStrokeType(7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         juce::ColourGradient arcGrad(palette_.accentPrimary, centreX - arcRadius, centreY,
                                      palette_.accentSecondary, centreX + arcRadius, centreY, false);
         g.setGradientFill(arcGrad);
-        g.strokePath(valArc, juce::PathStrokeType(3.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-        // Neon bloom halo
-        g.setColour(palette_.accentPrimary.withAlpha(0.24f));
-        g.strokePath(valArc, juce::PathStrokeType(7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.strokePath(valArc, juce::PathStrokeType(3.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
-    // 3. Drop Shadow & Anodized Cyber Collar
+    // 4. Knob body: drop shadow, knurled collar, inner cap
     const float bodyRadius = radius * 0.84f;
-    const float rx = centreX - bodyRadius;
-    const float ry = centreY - bodyRadius;
-    const float rw = bodyRadius * 2.0f;
+    const auto body = juce::Rectangle<float>(bodyRadius * 2.0f, bodyRadius * 2.0f).withCentre({ centreX, centreY });
 
     g.setColour(palette_.knobDropShadow);
-    g.fillEllipse(rx + 1.5f, ry + 3.0f, rw, rw);
+    g.fillEllipse(body.translated(1.5f, 3.0f));
 
-    juce::ColourGradient collarGrad(palette_.knobCollarTop, rx, ry,
-                                   palette_.knobCollarBottom, rx + rw, ry + rw, false);
+    juce::ColourGradient collarGrad(palette_.knobCollarTop, body.getX(), body.getY(),
+                                    palette_.knobCollarBottom, body.getRight(), body.getBottom(), false);
     collarGrad.addColour(0.5, palette_.knobCollarMid);
     g.setGradientFill(collarGrad);
-    g.fillEllipse(rx, ry, rw, rw);
-
+    g.fillEllipse(body);
     g.setColour(palette_.knobCollarBorder);
-    g.drawEllipse(rx, ry, rw, rw, 1.2f);
+    g.drawEllipse(body, 1.2f);
 
-    // Knurled turbine grooves around collar
-    constexpr int numGrooves = 24;
+    constexpr int kGrooves = 24;
     g.setColour(juce::Colours::black.withAlpha(0.42f));
-    for (int i = 0; i < numGrooves; ++i) {
-        const float ga = static_cast<float>(i) * (2.0f * std::numbers::pi_v<float> / static_cast<float>(numGrooves));
-        const float r0 = bodyRadius * 0.82f;
-        const float r1 = bodyRadius * 0.97f;
-        g.drawLine(centreX + std::sin(ga) * r0, centreY - std::cos(ga) * r0,
-                   centreX + std::sin(ga) * r1, centreY - std::cos(ga) * r1, 1.0f);
+    for (int i = 0; i < kGrooves; ++i) {
+        const float angle = static_cast<float>(i) * 2.0f * std::numbers::pi_v<float> / static_cast<float>(kGrooves);
+        g.drawLine(juce::Line<float>(pointAt(bodyRadius * 0.82f, angle), pointAt(bodyRadius * 0.97f, angle)), 1.0f);
     }
 
-    // 4. Inner Cyber Core Cap with Neon Ring
-    const float innerRadius = bodyRadius * 0.72f;
-    const float irx = centreX - innerRadius;
-    const float iry = centreY - innerRadius;
-    const float irw = innerRadius * 2.0f;
-
-    juce::ColourGradient coreGrad(palette_.knobCoreTop, irx, iry,
-                                  palette_.knobCoreBottom, irx + irw, iry + irw, false);
+    const float capRadius = bodyRadius * 0.72f;
+    const auto cap = juce::Rectangle<float>(capRadius * 2.0f, capRadius * 2.0f).withCentre({ centreX, centreY });
+    juce::ColourGradient coreGrad(palette_.knobCoreTop, cap.getX(), cap.getY(),
+                                  palette_.knobCoreBottom, cap.getRight(), cap.getBottom(), false);
     coreGrad.addColour(0.35, palette_.knobCoreMid1);
     coreGrad.addColour(0.75, palette_.knobCoreMid2);
     g.setGradientFill(coreGrad);
-    g.fillEllipse(irx, iry, irw, irw);
-
+    g.fillEllipse(cap);
     g.setColour(palette_.accentPrimary.withAlpha(0.45f));
-    g.drawEllipse(irx + 1.0f, iry + 1.0f, irw - 2.0f, irw - 2.0f, 1.0f);
+    g.drawEllipse(cap.reduced(1.0f), 1.0f);
 
-    // 5. Laser Pointer Line & Glowing Tip Node
-    const float pCos = std::cos(currentAngle - std::numbers::pi_v<float> * 0.5f);
-    const float pSin = std::sin(currentAngle - std::numbers::pi_v<float> * 0.5f);
-
-    const float pStart = innerRadius * 0.22f;
-    const float pEnd = bodyRadius * 0.90f;
-    const float sx0 = centreX + pStart * pCos;
-    const float sy0 = centreY + pStart * pSin;
-    const float sx1 = centreX + pEnd * pCos;
-    const float sy1 = centreY + pEnd * pSin;
-
+    // 5. Pointer
+    const juce::Line<float> pointer(pointAt(capRadius * 0.22f, currentAngle), pointAt(bodyRadius * 0.9f, currentAngle));
     g.setColour(palette_.accentPrimary.withAlpha(0.45f));
-    g.drawLine(sx0, sy0, sx1, sy1, 4.2f);
+    g.drawLine(pointer, 4.2f);
     g.setColour(palette_.knobPointer);
-    g.drawLine(sx0, sy0, sx1, sy1, 2.0f);
+    g.drawLine(pointer, 2.0f);
     g.setColour(palette_.accentPrimary);
-    g.fillEllipse(sx1 - 2.3f, sy1 - 2.3f, 4.6f, 4.6f);
+    g.fillEllipse(juce::Rectangle<float>(4.6f, 4.6f).withCentre(pointer.getEnd()));
 }
 
 void AnalogLookAndFeel::drawToggleButton(
@@ -594,89 +555,47 @@ void AnalogLookAndFeel::drawToggleButton(
     bool shouldDrawButtonAsHighlighted,
     bool /*shouldDrawButtonAsDown*/
 ) {
-    auto bounds = button.getLocalBounds().toFloat().reduced(2.0f, 2.0f);
-    const bool isToggled = button.getToggleState();
-    const bool isPowerOrSolo = (button.getButtonText() == "POWER" || button.getButtonText() == "SOLO");
-    const juce::Colour activeAccent = isPowerOrSolo ? palette_.accentSecondary : palette_.accentPrimary;
+    const auto bounds = button.getLocalBounds().toFloat().reduced(2.0f);
+    const bool isOn = button.getToggleState();
+    const auto& props = button.getProperties();
+    const juce::Colour accent = props["useSecondaryAccent"] ? palette_.accentSecondary : palette_.accentPrimary;
 
-    // Cyber Illuminated Tactile Switch Pad
-    juce::Colour bgCol = isToggled
-        ? activeAccent.withAlpha(0.22f)
-        : palette_.switchPlateBg;
+    // The text names the current state
+    const juce::String text = isOn ? props.getWithDefault("onText", button.getButtonText()).toString()
+                                   : props.getWithDefault("offText", button.getButtonText()).toString();
+
+    juce::Colour fill = isOn ? accent.withAlpha(0.22f) : palette_.switchPlateBg;
     if (shouldDrawButtonAsHighlighted) {
-        bgCol = bgCol.brighter(0.15f);
+        fill = fill.brighter(0.15f);
     }
-
-    // Chamfered / rounded cyber button frame
-    g.setColour(bgCol);
+    g.setColour(fill);
     g.fillRoundedRectangle(bounds, 4.5f);
 
-    if (isToggled) {
-        g.setColour(activeAccent.withAlpha(0.28f));
+    if (isOn) {
+        g.setColour(accent.withAlpha(0.28f));
         g.drawRoundedRectangle(bounds.expanded(1.2f), 5.5f, 2.2f);
     }
+    g.setColour(isOn ? accent : palette_.switchPlateBorder);
+    g.drawRoundedRectangle(bounds, 4.5f, isOn ? 1.5f : 1.0f);
 
-    g.setColour(isToggled ? activeAccent : palette_.switchPlateBorder);
-    g.drawRoundedRectangle(bounds, 4.5f, isToggled ? 1.5f : 1.0f);
-
-    // Top/left subtle cyber bracket highlight
-    if (isToggled) {
-        g.setColour(activeAccent);
-        g.fillRoundedRectangle(bounds.getX() + 6.0f, bounds.getBottom() - 3.0f, bounds.getWidth() - 12.0f, 2.0f, 1.0f);
-    }
-
-    // Glowing Jewel LED Indicator on left
-    const float ledSize = 9.0f;
-    const float ledX = bounds.getX() + 10.0f;
-    const float ledY = bounds.getCentreY() - ledSize * 0.5f;
-    juce::Rectangle<float> ledRect(ledX, ledY, ledSize, ledSize);
-
-    if (isToggled) {
-        g.setColour(activeAccent.withAlpha(0.42f));
-        g.fillEllipse(ledRect.expanded(3.0f));
+    const auto led = juce::Rectangle<float>(9.0f, 9.0f).withCentre({ bounds.getX() + 14.0f, bounds.getCentreY() });
+    if (isOn) {
+        g.setColour(accent.withAlpha(0.42f));
+        g.fillEllipse(led.expanded(3.0f));
         g.setColour(palette_.headerTitle);
-        g.fillEllipse(ledRect.reduced(1.5f));
-        g.setColour(activeAccent);
-        g.drawEllipse(ledRect, 1.5f);
+        g.fillEllipse(led.reduced(1.5f));
+        g.setColour(accent);
+        g.drawEllipse(led, 1.5f);
     } else {
         g.setColour(palette_.switchSlotBg);
-        g.fillEllipse(ledRect);
+        g.fillEllipse(led);
         g.setColour(palette_.switchPlateBorder);
-        g.drawEllipse(ledRect, 1.0f);
+        g.drawEllipse(led, 1.0f);
     }
 
-    // Button Text
-    g.setColour(isToggled ? palette_.switchActiveText : palette_.switchInactiveText);
-    g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
-    auto textRect = bounds.withTrimmedLeft(22.0f);
-    g.drawText(button.getButtonText(), textRect.toNearestInt(), juce::Justification::centred);
-}
-
-void AnalogLookAndFeel::drawVintageJewelLed(juce::Graphics& g, juce::Rectangle<float> bounds, bool isActive) const {
-    drawVintageJewelLed(g, bounds, isActive, palette_);
-}
-
-void AnalogLookAndFeel::drawVintageJewelLed(juce::Graphics& g, juce::Rectangle<float> bounds, bool isActive, const ThemePalette& palette) {
-    g.setColour(palette.jewelBezelBg);
-    g.fillEllipse(bounds);
-    g.setColour(palette.jewelBezelBorder);
-    g.drawEllipse(bounds, 1.0f);
-
-    auto inner = bounds.reduced(1.8f);
-    if (isActive) {
-        g.setColour(palette.jewelHalo);
-        g.fillEllipse(bounds.expanded(3.5f));
-
-        juce::ColourGradient ledGrad(palette.jewelCoreOn, inner.getCentreX(), inner.getCentreY(),
-                                    palette.jewelEdgeOn, inner.getX(), inner.getY(), true);
-        g.setGradientFill(ledGrad);
-        g.fillEllipse(inner);
-    } else {
-        juce::ColourGradient offGrad(palette.jewelCoreOff, inner.getX(), inner.getY(),
-                                    palette.jewelEdgeOff, inner.getRight(), inner.getBottom(), false);
-        g.setGradientFill(offGrad);
-        g.fillEllipse(inner);
-    }
+    g.setColour(isOn ? palette_.switchActiveText : palette_.switchInactiveText);
+    g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
+    g.drawFittedText(text, bounds.withTrimmedLeft(24.0f).withTrimmedRight(4.0f).toNearestInt(), juce::Justification::centred, 1);
 }
 
 void AnalogLookAndFeel::drawRackScrew(juce::Graphics& g, float centerX, float centerY, float radius) const {

@@ -1,89 +1,127 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "ButterworthCoeffs.h"
 #include <algorithm>
 #include <cmath>
+#include <complex>
+#include <numbers>
+
+namespace {
+
+constexpr int kEditorWidth = 1040;
+constexpr int kEditorHeight = 540;
+constexpr float kBayTop = 70.0f;
+constexpr float kBayMargin = 32.0f;
+constexpr float kBaySpacing = 12.0f;
+constexpr float kBayBottomMargin = 22.0f;
+
+void setScale(juce::Slider& slider, std::initializer_list<double> values, std::initializer_list<const char*> labels) {
+    juce::Array<juce::var> valueArray;
+    juce::Array<juce::var> labelArray;
+    for (const double v : values) {
+        valueArray.add(v);
+    }
+    for (const char* l : labels) {
+        labelArray.add(juce::String(l));
+    }
+    slider.getProperties().set("scaleValues", valueArray);
+    slider.getProperties().set("scaleLabels", labelArray);
+}
+
+void setStateText(juce::ToggleButton& button, const juce::String& onText, const juce::String& offText) {
+    button.getProperties().set("onText", onText);
+    button.getProperties().set("offText", offText);
+}
+
+// Uses the same filter design as the DSP core
+double filterResponseDb(const analog_master::core::FilterDesign& design, double freqHz, double sampleRate) {
+    const std::complex<double> zInv = std::polar(1.0, -2.0 * std::numbers::pi * freqHz / sampleRate);
+    std::complex<double> response = 1.0;
+    for (const auto& s : design) {
+        response *= (s.b0 + zInv * (s.b1 + zInv * s.b2)) / (1.0 + zInv * (s.a1 + zInv * s.a2));
+    }
+    return 20.0 * std::log10(std::max(std::abs(response), 1e-9));
+}
+
+} // namespace
 
 AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
     : AudioProcessorEditor(&owner), processor_(owner) {
+    using namespace analog_master::params;
     setLookAndFeel(&lookAndFeel_);
 
-    // Load Gemini-generated custom Alan Marcero logo & cyberpunk chassis backdrop from BinaryData
-    customLogoImage_ = juce::ImageCache::getFromMemory(BinaryData::alan_marcero_logo_jpg,
-                                                       BinaryData::alan_marcero_logo_jpgSize);
-    backdropImage_ = juce::ImageCache::getFromMemory(BinaryData::cyber_chassis_backdrop_jpg,
-                                                     BinaryData::cyber_chassis_backdrop_jpgSize);
+    logoImage_ = juce::ImageCache::getFromMemory(BinaryData::alan_marcero_logo_jpg, BinaryData::alan_marcero_logo_jpgSize);
+    backdropImage_ = juce::ImageCache::getFromMemory(BinaryData::cyber_chassis_backdrop_jpg, BinaryData::cyber_chassis_backdrop_jpgSize);
 
-    auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& text, const juce::String& suffix) {
-        s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 78, 18);
-        s.setTextValueSuffix(suffix);
-        addAndMakeVisible(s);
-
-        l.setText(text, juce::dontSendNotification);
-        l.setJustificationType(juce::Justification::centred);
-        l.setColour(juce::Label::textColourId, lookAndFeel_.getPalette().labelText);
-        l.setFont(juce::FontOptions(10.5f, juce::Font::bold));
-        addAndMakeVisible(l);
+    auto setupLabel = [this](juce::Label& label, const juce::String& text) {
+        label.setText(text, juce::dontSendNotification);
+        label.setJustificationType(juce::Justification::centred);
+        label.setFont(juce::FontOptions(10.5f, juce::Font::bold));
+        addAndMakeVisible(label);
     };
 
-    auto setupCombo = [this](juce::ComboBox& c, juce::Label& l, const juce::String& text, const juce::StringArray& items) {
-        c.addItemList(items, 1);
-        c.setJustificationType(juce::Justification::centred);
-        addAndMakeVisible(c);
-
-        l.setText(text, juce::dontSendNotification);
-        l.setJustificationType(juce::Justification::centred);
-        l.setColour(juce::Label::textColourId, lookAndFeel_.getPalette().labelText);
-        l.setFont(juce::FontOptions(10.0f, juce::Font::bold));
-        addAndMakeVisible(l);
+    // The parameter strings include the unit
+    auto setupKnob = [this, &setupLabel](juce::Slider& slider, juce::Label& label, const juce::String& text) {
+        slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 96, 18);
+        slider.onValueChange = [this] { repaint(); };
+        addAndMakeVisible(slider);
+        setupLabel(label, text);
     };
 
-    const juce::StringArray slopeLabels { "12 dB/OCT", "24 dB/OCT", "48 dB/OCT", "72 dB HARD", "96 dB BRICK" };
-
-    // 0. Look / Theme Switcher in Header (5 Cyberpunk Themes)
-    const juce::StringArray themeChoices {
-        "Cyber Neon",
-        "Chrome Deck",
-        "Acid Bio-Grid",
-        "Deep Net Ice",
-        "Solar Overdrive"
+    auto setupSlopeBox = [this, &setupLabel](juce::ComboBox& box, juce::Label& label, const char* paramId) {
+        if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(processor_.parameters.getParameter(paramId))) {
+            box.addItemList(choice->choices, 1);
+        }
+        box.setJustificationType(juce::Justification::centred);
+        box.onChange = [this] { repaint(); };
+        addAndMakeVisible(box);
+        setupLabel(label, "SLOPE");
     };
-    themeBox_.addItemList(themeChoices, 1);
+
+    auto setupButton = [this](juce::ToggleButton& button, const juce::String& onText, const juce::String& offText) {
+        setStateText(button, onText, offText);
+        button.onClick = [this] { repaint(); };
+        addAndMakeVisible(button);
+    };
+
+    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(processor_.parameters.getParameter(kTheme))) {
+        themeBox_.addItemList(choice->choices, 1);
+    }
     themeBox_.setJustificationType(juce::Justification::centred);
-    themeBox_.onChange = [this]() {
-        applyTheme(themeBox_.getSelectedItemIndex());
-    };
+    themeBox_.onChange = [this] { applyTheme(themeBox_.getSelectedItemIndex()); };
     addAndMakeVisible(themeBox_);
-
-    themeLabel_.setText("THEME:", juce::dontSendNotification);
+    setupLabel(themeLabel_, "THEME");
     themeLabel_.setJustificationType(juce::Justification::centredRight);
-    themeLabel_.setColour(juce::Label::textColourId, lookAndFeel_.getPalette().labelText);
-    themeLabel_.setFont(juce::FontOptions(10.5f, juce::Font::bold));
-    addAndMakeVisible(themeLabel_);
 
     // 1. Low Cut
-    setupSlider(lowCutFreqSlider_, lowCutFreqLabel_, "CUTOFF FREQUENCY", " Hz");
-    setupCombo(lowCutSlopeBox_, lowCutSlopeLabel_, "FILTER SLOPE", slopeLabels);
-    addAndMakeVisible(lowCutBypassButton_);
+    setupKnob(lowCutFreqSlider_, lowCutFreqLabel_, "FREQUENCY");
+    setScale(lowCutFreqSlider_, { 10.0, 20.0, 40.0, 80.0, 200.0 }, { "10", "20", "40", "80", "200" });
+    setupSlopeBox(lowCutSlopeBox_, lowCutSlopeLabel_, kLowCutSlope);
+    setupButton(lowCutBypassButton_, "ACTIVE", "BYPASSED");
 
-    // 2. Stereo Field
-    setupSlider(stereoWidthSlider_, stereoWidthLabel_, "LOW STEREO WIDTH", " %");
-    setupSlider(stereoFreqSlider_, stereoFreqLabel_, "X-OVER FREQUENCY", " Hz");
-    addAndMakeVisible(stereoBypassButton_);
-    addAndMakeVisible(stereoSoloButton_);
+    // 2. Low-End Stereo Field
+    setupKnob(stereoWidthSlider_, stereoWidthLabel_, "WIDTH");
+    setScale(stereoWidthSlider_, { 0.0, 50.0, 100.0, 150.0, 200.0 }, { "MONO", "50", "100", "150", "200" });
+    setupKnob(stereoFreqSlider_, stereoFreqLabel_, "CROSSOVER");
+    setScale(stereoFreqSlider_, { 40.0, 80.0, 120.0, 250.0, 500.0 }, { "40", "80", "120", "250", "500" });
+    setupButton(stereoBypassButton_, "ACTIVE", "BYPASSED");
+    setupButton(stereoSoloButton_, "LOWS ONLY", "FULL MIX");
+    stereoSoloButton_.getProperties().set("useSecondaryAccent", true);
 
     // 3. High Cut
-    setupSlider(highCutFreqSlider_, highCutFreqLabel_, "CUTOFF FREQUENCY", " Hz");
-    setupCombo(highCutSlopeBox_, highCutSlopeLabel_, "FILTER SLOPE", slopeLabels);
-    addAndMakeVisible(highCutBypassButton_);
+    setupKnob(highCutFreqSlider_, highCutFreqLabel_, "FREQUENCY");
+    setScale(highCutFreqSlider_, { 8000.0, 12000.0, 15000.0, 20000.0, 24000.0 }, { "8k", "12k", "15k", "20k", "24k" });
+    setupSlopeBox(highCutSlopeBox_, highCutSlopeLabel_, kHighCutSlope);
+    setupButton(highCutBypassButton_, "ACTIVE", "BYPASSED");
 
-    // 4. Master
-    setupSlider(masterGainSlider_, masterGainLabel_, "MASTER OUTPUT TRIM", " dB");
-    addAndMakeVisible(masterBypassButton_);
+    // 4. Master Output
     addAndMakeVisible(meter_);
+    setupKnob(masterGainSlider_, masterGainLabel_, "OUTPUT TRIM");
+    setScale(masterGainSlider_, { -18.0, -9.0, 0.0, 9.0, 18.0 }, { "-18", "-9", "0", "+9", "+18" });
+    setupButton(masterPowerButton_, "POWER ON", "BYPASSED");
+    masterPowerButton_.getProperties().set("useSecondaryAccent", true);
 
-    // APVTS Attachments
-    using namespace analog_master::params;
     themeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kTheme, themeBox_);
 
     lowCutFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kLowCutFreq, lowCutFreqSlider_);
@@ -100,51 +138,35 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
     highCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kHighCutIn, highCutBypassButton_);
 
     masterGainAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kMasterGain, masterGainSlider_);
-    masterBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterPower, masterBypassButton_);
+    masterPowerAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterPower, masterPowerButton_);
 
-    // Double-click any rotary knob to snap back to its mastering default
+    // Double-click a knob to return it to its default
     lowCutFreqSlider_.setDoubleClickReturnValue(true, 20.0);
     stereoWidthSlider_.setDoubleClickReturnValue(true, 0.0);
     stereoFreqSlider_.setDoubleClickReturnValue(true, 120.0);
     highCutFreqSlider_.setDoubleClickReturnValue(true, 20000.0);
     masterGainSlider_.setDoubleClickReturnValue(true, 0.0);
 
-    processor_.parameters.addParameterListener(kTheme, this);
-
     applyTheme(themeBox_.getSelectedItemIndex());
 
-    setSize(1040, 540);
+    setSize(kEditorWidth, kEditorHeight);
     startTimerHz(30);
 }
 
 AnalogMasterEditor::~AnalogMasterEditor() {
-    processor_.parameters.removeParameterListener(analog_master::params::kTheme, this);
     stopTimer();
     setLookAndFeel(nullptr);
 }
 
-void AnalogMasterEditor::parameterChanged(const juce::String& parameterID, float newValue) {
-    if (parameterID == analog_master::params::kTheme) {
-        juce::MessageManager::callAsync([this, idx = static_cast<int>(newValue)]() {
-            applyTheme(idx);
-        });
-    }
-}
-
 void AnalogMasterEditor::applyTheme(int themeIndex) {
-    themeIndex = std::clamp(themeIndex, 0, 4);
-    auto theme = static_cast<analog_master::ui::Theme>(themeIndex);
-    lookAndFeel_.setTheme(theme);
-    meter_.setThemePalette(lookAndFeel_.getPalette());
-
+    lookAndFeel_.setTheme(static_cast<analog_master::ui::Theme>(std::clamp(themeIndex, 0, 4)));
     const auto& pal = lookAndFeel_.getPalette();
-    lowCutFreqLabel_.setColour(juce::Label::textColourId, pal.labelText);
-    lowCutSlopeLabel_.setColour(juce::Label::textColourId, pal.labelText);
-    stereoWidthLabel_.setColour(juce::Label::textColourId, pal.labelText);
-    stereoFreqLabel_.setColour(juce::Label::textColourId, pal.labelText);
-    highCutFreqLabel_.setColour(juce::Label::textColourId, pal.labelText);
-    highCutSlopeLabel_.setColour(juce::Label::textColourId, pal.labelText);
-    masterGainLabel_.setColour(juce::Label::textColourId, pal.labelText);
+    meter_.setThemePalette(pal);
+
+    for (auto* label : { &lowCutFreqLabel_, &lowCutSlopeLabel_, &stereoWidthLabel_, &stereoFreqLabel_,
+                         &highCutFreqLabel_, &highCutSlopeLabel_, &masterGainLabel_ }) {
+        label->setColour(juce::Label::textColourId, pal.labelText);
+    }
     themeLabel_.setColour(juce::Label::textColourId, pal.accentPrimary);
 
     sendLookAndFeelChange();
@@ -152,374 +174,321 @@ void AnalogMasterEditor::applyTheme(int themeIndex) {
 }
 
 void AnalogMasterEditor::timerCallback() {
-    auto levels = processor_.meterLevels();
-    const float levelL = levels.vuL > 1e-4f ? levels.vuL : levels.peakL;
-    const float levelR = levels.vuR > 1e-4f ? levels.vuR : levels.peakR;
-    meter_.setLevels(levelL, levelR, levels.clipL, levels.clipR, levels.correlation);
-    repaint();
+    meter_.setLevels(processor_.takeMeterLevels());
+}
+
+juce::Rectangle<float> AnalogMasterEditor::moduleBayBounds(int index) const {
+    const float bayW = (static_cast<float>(getWidth()) - kBayMargin * 2.0f - kBaySpacing * 3.0f) * 0.25f;
+    const float bayH = static_cast<float>(getHeight()) - kBayTop - kBayBottomMargin;
+    return { kBayMargin + static_cast<float>(index) * (bayW + kBaySpacing), kBayTop, bayW, bayH };
 }
 
 void AnalogMasterEditor::paint(juce::Graphics& g) {
-    const auto width = static_cast<float>(getWidth());
-    const auto height = static_cast<float>(getHeight());
+    const auto bounds = getLocalBounds().toFloat();
     const auto& pal = lookAndFeel_.getPalette();
 
-    // 1. Cyberpunk Carbon-Titanium Base Gradient + Gemini-Generated Chassis Backdrop
-    juce::ColourGradient panelGrad(pal.panelGradTop, 0.0f, 0.0f,
-                                  pal.panelGradBottom, 0.0f, height, false);
+    juce::ColourGradient panelGrad(pal.panelGradTop, 0.0f, 0.0f, pal.panelGradBottom, 0.0f, bounds.getHeight(), false);
     panelGrad.addColour(0.32, pal.panelGradMid1);
     panelGrad.addColour(0.72, pal.panelGradMid2);
     g.setGradientFill(panelGrad);
-    g.fillRect(0.0f, 0.0f, width, height);
+    g.fillRect(bounds);
 
     if (backdropImage_.isValid()) {
         g.setOpacity(0.32f);
-        g.drawImage(backdropImage_, juce::Rectangle<float>(0.0f, 0.0f, width, height),
-                    juce::RectanglePlacement::stretchToFit);
+        g.drawImage(backdropImage_, bounds, juce::RectanglePlacement::stretchToFit);
         g.setOpacity(1.0f);
     }
 
-    // Subtle cyber scanlines across chassis
     g.setColour(pal.panelStripe);
     for (int y = 0; y < getHeight(); y += 3) {
-        g.drawHorizontalLine(y, 0.0f, width);
+        g.drawHorizontalLine(y, 0.0f, bounds.getWidth());
     }
 
-    // Outer cyber chassis border and glowing neon inner frame
     g.setColour(pal.panelBorder);
-    g.drawRect(0.0f, 0.0f, width, height, 2.0f);
+    g.drawRect(bounds, 2.0f);
     g.setColour(pal.panelInnerBorder);
-    g.drawRect(3.0f, 3.0f, width - 6.0f, height - 6.0f, 1.2f);
+    g.drawRect(bounds.reduced(3.0f), 1.2f);
 
-    // 2. Corner Cyber Hex Rack Bolts
     lookAndFeel_.drawRackScrew(g, 18.0f, 18.0f, 7.5f);
-    lookAndFeel_.drawRackScrew(g, width - 18.0f, 18.0f, 7.5f);
-    lookAndFeel_.drawRackScrew(g, 18.0f, height - 18.0f, 7.5f);
-    lookAndFeel_.drawRackScrew(g, width - 18.0f, height - 18.0f, 7.5f);
+    lookAndFeel_.drawRackScrew(g, bounds.getRight() - 18.0f, 18.0f, 7.5f);
+    lookAndFeel_.drawRackScrew(g, 18.0f, bounds.getBottom() - 18.0f, 7.5f);
+    lookAndFeel_.drawRackScrew(g, bounds.getRight() - 18.0f, bounds.getBottom() - 18.0f, 7.5f);
 
-    // 3. Top Header HUD with Custom Alan Marcero Logo
-    if (customLogoImage_.isValid()) {
-        const juce::Rectangle<float> logoRect(36.0f, 9.0f, 44.0f, 44.0f);
+    const juce::Rectangle<float> logoRect(36.0f, 9.0f, 44.0f, 44.0f);
+    if (logoImage_.isValid()) {
         juce::Graphics::ScopedSaveState save(g);
-        juce::Path clipCircle;
-        clipCircle.addEllipse(logoRect);
-        g.reduceClipRegion(clipCircle);
-        g.drawImage(customLogoImage_, logoRect, juce::RectanglePlacement::centred);
-        g.setColour(pal.accentPrimary.withAlpha(0.8f));
-        g.drawEllipse(logoRect.reduced(0.5f), 1.5f);
+        juce::Path circle;
+        circle.addEllipse(logoRect);
+        g.reduceClipRegion(circle);
+        g.drawImage(logoImage_, logoRect, juce::RectanglePlacement::centred);
     }
+    g.setColour(pal.accentPrimary.withAlpha(0.8f));
+    g.drawEllipse(logoRect.reduced(0.5f), 1.5f);
 
     g.setColour(pal.headerBrand);
     g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
-    g.drawText("ALAN MARCERO", 88, 12, 165, 18, juce::Justification::centredLeft);
+    g.drawText("ALAN MARCERO", juce::Rectangle<float>(88.0f, 20.0f, 160.0f, 20.0f), juce::Justification::centredLeft);
 
-    g.setColour(pal.headerSub);
-    g.setFont(juce::FontOptions(9.5f, juce::Font::plain));
-    g.drawText("CYBERNETIC MASTERING DSP", 88, 29, 175, 14, juce::Justification::centredLeft);
-
-    // Center Beveled Cyber Title Plate
-    juce::Rectangle<float> centerTitlePlate(width * 0.5f - 210.0f, 8.0f, 420.0f, 44.0f);
+    const juce::Rectangle<float> titlePlate(bounds.getCentreX() - 210.0f, 8.0f, 420.0f, 44.0f);
     g.setColour(pal.sectionWellBg);
-    g.fillRoundedRectangle(centerTitlePlate, 6.0f);
+    g.fillRoundedRectangle(titlePlate, 6.0f);
     g.setColour(pal.accentPrimary.withAlpha(0.55f));
-    g.drawRoundedRectangle(centerTitlePlate, 6.0f, 1.3f);
+    g.drawRoundedRectangle(titlePlate, 6.0f, 1.3f);
 
-    g.setFont(juce::FontOptions(18.0f, juce::Font::bold));
     g.setColour(pal.headerTitle);
-    g.drawText("ANALOG MASTER STRIP", centerTitlePlate.withHeight(25.0f).withY(10.0f).toNearestInt(), juce::Justification::centred);
-
-    g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+    g.setFont(juce::FontOptions(18.0f, juce::Font::bold));
+    g.drawText("ANALOG MASTER STRIP", titlePlate.withHeight(26.0f).translated(0.0f, 2.0f), juce::Justification::centred);
     g.setColour(pal.accentPrimary);
-    g.drawText("CYBERPUNK SUB-BASS & AIR CONTOURING SYSTEM", centerTitlePlate.withHeight(14.0f).withY(33.0f).toNearestInt(), juce::Justification::centred);
-
-    // Master System Status Pill in Header
-    const bool powerOn = masterBypassButton_.getToggleState();
-    juce::Rectangle<float> statusPill(width - 335.0f, 17.0f, 108.0f, 26.0f);
-    g.setColour(powerOn ? pal.accentPrimary.withAlpha(0.20f) : pal.switchSlotBg);
-    g.fillRoundedRectangle(statusPill, 13.0f);
-    g.setColour(powerOn ? pal.accentPrimary : pal.sectionBorder);
-    g.drawRoundedRectangle(statusPill, 13.0f, 1.2f);
-    g.setColour(powerOn ? pal.headerTitle : pal.switchInactiveText);
     g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
-    g.drawText(powerOn ? "SYS: ONLINE" : "SYS: BYPASS", statusPill.toNearestInt(), juce::Justification::centred);
+    g.drawText("LOW CUT  /  LOW-END STEREO  /  HIGH CUT", titlePlate.withTrimmedTop(27.0f).withHeight(13.0f), juce::Justification::centred);
 
-    // Glowing Header Divider Line
     g.setColour(pal.headerDivider);
-    g.drawLine(32.0f, 60.0f, width - 32.0f, 60.0f, 1.2f);
+    g.drawLine(32.0f, 60.0f, bounds.getRight() - 32.0f, 60.0f, 1.2f);
 
-    // 4. Four Cyberpunk Module Bays
-    const float sectionY = 70.0f;
-    const float sectionH = height - sectionY - 22.0f;
-    const float sectionMargin = 32.0f;
-    const float totalAvailW = width - sectionMargin * 2.0f;
-    const float sectionSpacing = 12.0f;
-    const float sectionW = (totalAvailW - sectionSpacing * 3.0f) * 0.25f;
-
-    const char* moduleTags[4] = {
-        "MOD 01 // SUB-BASS HPF",
-        "MOD 02 // M/S FIELD",
-        "MOD 03 // HARMONIC LPF",
-        "MOD 04 // OUTPUT & TELEMETRY"
-    };
-
-    const char* sectionTitles[4] = {
-        "LOW CUT EQ",
-        "LOW STEREO FIELD",
-        "HIGH CUT EQ",
-        "MASTER OUTPUT"
-    };
-
-    const bool moduleActive[4] = {
+    const bool powerOn = masterPowerButton_.getToggleState();
+    const bool bayActive[4] = {
         powerOn && lowCutBypassButton_.getToggleState(),
         powerOn && stereoBypassButton_.getToggleState(),
         powerOn && highCutBypassButton_.getToggleState(),
         powerOn
     };
-
-    constexpr int kPolesPerSlope[5] = { 2, 4, 8, 12, 16 };
-    constexpr int kDbPerOct[5] = { 12, 24, 48, 72, 96 };
-
     for (int i = 0; i < 4; ++i) {
-        const float sx = sectionMargin + static_cast<float>(i) * (sectionW + sectionSpacing);
-        juce::Rectangle<float> secRect(sx, sectionY, sectionW, sectionH);
-        const bool active = moduleActive[i];
-        const juce::Colour modAccent = (i == 3) ? pal.accentSecondary : pal.accentPrimary;
+        paintModuleBay(g, i, moduleBayBounds(i), bayActive[i]);
+    }
+}
 
-        // Module Bay Background
-        g.setColour(pal.sectionWellBg);
-        g.fillRoundedRectangle(secRect, 7.0f);
+void AnalogMasterEditor::paintModuleBay(juce::Graphics& g, int index, juce::Rectangle<float> bay, bool active) const {
+    const auto& pal = lookAndFeel_.getPalette();
+    const juce::Colour accent = index == 3 ? pal.accentSecondary : pal.accentPrimary;
 
-        // Subtle internal cyber HUD grid lines inside each module bay
-        g.setColour(pal.hudGrid.withAlpha(0.08f));
-        for (float gx = secRect.getX() + 20.0f; gx < secRect.getRight() - 10.0f; gx += 20.0f) {
-            g.drawVerticalLine(static_cast<int>(gx), secRect.getY() + 44.0f, secRect.getBottom() - 8.0f);
-        }
-        for (float gy = secRect.getY() + 60.0f; gy < secRect.getBottom() - 10.0f; gy += 20.0f) {
-            g.drawHorizontalLine(static_cast<int>(gy), secRect.getX() + 6.0f, secRect.getRight() - 6.0f);
-        }
+    const char* tags[4] = { "01  /  HIGH-PASS", "02  /  MID-SIDE BELOW CROSSOVER", "03  /  LOW-PASS", "04  /  TRIM & METERS" };
+    const char* titles[4] = { "LOW CUT", "LOW-END STEREO", "HIGH CUT", "MASTER OUTPUT" };
 
-        // Outer neon glow when module is engaged
-        if (active) {
-            g.setColour(modAccent.withAlpha(0.18f));
-            g.drawRoundedRectangle(secRect.expanded(1.5f), 8.0f, 2.5f);
-        }
+    g.setColour(pal.sectionWellBg);
+    g.fillRoundedRectangle(bay, 7.0f);
 
-        // Module Bay Border
-        g.setColour(active ? modAccent.withAlpha(0.85f) : pal.sectionBorder);
-        g.drawRoundedRectangle(secRect, 7.0f, active ? 1.5f : 1.0f);
+    g.setColour(pal.hudGrid.withAlpha(0.08f));
+    for (float x = bay.getX() + 20.0f; x < bay.getRight() - 10.0f; x += 20.0f) {
+        g.drawVerticalLine(static_cast<int>(x), bay.getY() + 44.0f, bay.getBottom() - 8.0f);
+    }
+    for (float y = bay.getY() + 60.0f; y < bay.getBottom() - 10.0f; y += 20.0f) {
+        g.drawHorizontalLine(static_cast<int>(y), bay.getX() + 6.0f, bay.getRight() - 6.0f);
+    }
 
-        // Top Module Header Plate
-        juce::Rectangle<float> headerPlate(sx + 8.0f, sectionY + 8.0f, sectionW - 16.0f, 34.0f);
-        g.setColour(pal.sectionHeaderPlate);
-        g.fillRoundedRectangle(headerPlate, 4.5f);
+    if (active) {
+        g.setColour(accent.withAlpha(0.18f));
+        g.drawRoundedRectangle(bay.expanded(1.5f), 8.0f, 2.5f);
+    }
+    g.setColour(active ? accent.withAlpha(0.85f) : pal.sectionBorder);
+    g.drawRoundedRectangle(bay, 7.0f, active ? 1.5f : 1.0f);
 
-        // Top cyber tag
-        g.setColour(pal.headerSub);
-        g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-        g.drawText(moduleTags[i], headerPlate.withHeight(13.0f).withY(headerPlate.getY() + 2.0f).toNearestInt(), juce::Justification::centred);
+    const auto headerPlate = bay.reduced(8.0f).withHeight(34.0f);
+    g.setColour(pal.sectionHeaderPlate);
+    g.fillRoundedRectangle(headerPlate, 4.5f);
 
-        // Main Module Title
-        g.setColour(active ? modAccent : pal.headerSub);
-        g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-        g.drawText(sectionTitles[i], headerPlate.withHeight(18.0f).withY(headerPlate.getY() + 14.0f).toNearestInt(), juce::Justification::centred);
+    g.setColour(pal.headerSub);
+    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+    g.drawText(tags[index], headerPlate.withHeight(14.0f).translated(0.0f, 2.0f), juce::Justification::centred);
+    g.setColour(active ? accent : pal.headerSub);
+    g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    g.drawText(titles[index], headerPlate.withTrimmedTop(14.0f).withHeight(18.0f), juce::Justification::centred);
 
-        // Glowing neon underline bar beneath module header
-        g.setColour(active ? modAccent : pal.sectionBorder);
-        g.fillRoundedRectangle(sx + 16.0f, headerPlate.getBottom() + 3.0f, sectionW - 32.0f, 2.0f, 1.0f);
+    g.setColour(active ? accent : pal.sectionBorder);
+    g.fillRoundedRectangle(bay.getX() + 16.0f, headerPlate.getBottom() + 3.0f, bay.getWidth() - 32.0f, 2.0f, 1.0f);
 
-        // Holographic Filter / Stereo Field Mini-Display in Bays 0, 1, 2
-        if (i < 3) {
-            juce::Rectangle<float> dispRect(sx + 14.0f, sectionY + 52.0f, sectionW - 28.0f, 52.0f);
-            g.setColour(pal.meterFaceBottom);
-            g.fillRoundedRectangle(dispRect, 4.5f);
-            g.setColour(active ? modAccent.withAlpha(0.45f) : pal.sectionBorder);
-            g.drawRoundedRectangle(dispRect, 4.5f, 1.0f);
+    if (index < 3) {
+        const juce::Rectangle<float> display(bay.getX() + 14.0f, bay.getY() + 52.0f, bay.getWidth() - 28.0f, 52.0f);
+        g.setColour(pal.meterFaceBottom);
+        g.fillRoundedRectangle(display, 4.5f);
+        g.setColour(active ? accent.withAlpha(0.45f) : pal.sectionBorder);
+        g.drawRoundedRectangle(display, 4.5f, 1.0f);
 
-            // Internal reticle lines
-            g.setColour(pal.hudGrid.withAlpha(0.16f));
-            g.drawHorizontalLine(static_cast<int>(dispRect.getY() + 14.0f), dispRect.getX() + 3.0f, dispRect.getRight() - 3.0f);
-            g.drawHorizontalLine(static_cast<int>(dispRect.getCentreY()), dispRect.getX() + 3.0f, dispRect.getRight() - 3.0f);
-
-            const auto plot = dispRect.reduced(5.0f, 6.0f);
-            const juce::Colour traceCol = active ? modAccent : pal.headerSub.withAlpha(0.45f);
-
-            if (i == 0 || i == 2) {
-                const bool isHighPass = (i == 0);
-                const double fc = isHighPass ? lowCutFreqSlider_.getValue() : highCutFreqSlider_.getValue();
-                const int slopeIdx = std::clamp(isHighPass ? lowCutSlopeBox_.getSelectedItemIndex() : highCutSlopeBox_.getSelectedItemIndex(), 0, 4);
-                const int poles = kPolesPerSlope[slopeIdx];
-                const double minF = isHighPass ? 10.0 : 1000.0;
-                const double maxF = isHighPass ? 1000.0 : 30000.0;
-                const double logRatio = std::log(maxF / minF);
-
-                juce::Path curvePath;
-                juce::Path fillPath;
-                constexpr int kSteps = 44;
-                for (int s = 0; s <= kSteps; ++s) {
-                    const float normX = static_cast<float>(s) / static_cast<float>(kSteps);
-                    const double f = minF * std::exp(static_cast<double>(normX) * logRatio);
-                    const double ratio = isHighPass ? (fc / f) : (f / fc);
-                    const double magDb = -10.0 * std::log10(1.0 + std::pow(ratio, 2.0 * poles));
-                    const float normY = std::clamp(static_cast<float>((magDb + 36.0) / 36.0), 0.0f, 1.0f);
-                    const float px = plot.getX() + normX * plot.getWidth();
-                    const float py = plot.getBottom() - normY * (plot.getHeight() - 6.0f);
-
-                    if (s == 0) {
-                        curvePath.startNewSubPath(px, py);
-                        fillPath.startNewSubPath(px, plot.getBottom());
-                        fillPath.lineTo(px, py);
-                    } else {
-                        curvePath.lineTo(px, py);
-                        fillPath.lineTo(px, py);
-                    }
-                }
-                fillPath.lineTo(plot.getRight(), plot.getBottom());
-                fillPath.closeSubPath();
-
-                g.setColour(traceCol.withAlpha(active ? 0.18f : 0.06f));
-                g.fillPath(fillPath);
-                g.setColour(traceCol);
-                g.strokePath(curvePath, juce::PathStrokeType(1.7f));
-
-                // Cutoff -3 dB marker dot
-                const float fcNormX = std::clamp(static_cast<float>(std::log(fc / minF) / logRatio), 0.0f, 1.0f);
-                const float fcNormY = std::clamp(static_cast<float>((-3.0 + 36.0) / 36.0), 0.0f, 1.0f);
-                const float cx = plot.getX() + fcNormX * plot.getWidth();
-                const float cy = plot.getBottom() - fcNormY * (plot.getHeight() - 6.0f);
-                g.setColour(pal.headerTitle);
-                g.fillEllipse(cx - 2.5f, cy - 2.5f, 5.0f, 5.0f);
-
-                // Telemetry text overlay
-                g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-                g.setColour(pal.headerTitle.withAlpha(0.85f));
-                juce::String freqStr = (fc >= 1000.0) ? (juce::String(fc / 1000.0, 1) + " kHz") : (juce::String(static_cast<int>(fc)) + " Hz");
-                g.drawText(freqStr + " // -" + juce::String(kDbPerOct[slopeIdx]) + " dB/OCT",
-                           dispRect.reduced(6.0f, 3.0f).toNearestInt(), juce::Justification::bottomRight);
-            } else {
-                // Bay 1: Holographic M/S Stereo Width Cone & Crossover Display
-                const float widthPct = static_cast<float>(stereoWidthSlider_.getValue());
-                const float widthNorm = std::clamp(widthPct / 200.0f, 0.0f, 1.0f);
-                const double xoverHz = stereoFreqSlider_.getValue();
-                const bool soloLow = stereoSoloButton_.getToggleState();
-
-                const float centerX = plot.getCentreX();
-                const float baseY = plot.getBottom() - 2.0f;
-                const float topY = plot.getY() + 4.0f;
-                const float halfSpread = 2.0f + widthNorm * (plot.getWidth() * 0.44f);
-
-                juce::Path cone;
-                cone.startNewSubPath(centerX, baseY);
-                cone.lineTo(centerX - halfSpread, topY);
-                cone.lineTo(centerX + halfSpread, topY);
-                cone.closeSubPath();
-
-                g.setColour(traceCol.withAlpha(active ? 0.22f : 0.08f));
-                g.fillPath(cone);
-                g.setColour(traceCol);
-                g.strokePath(cone, juce::PathStrokeType(1.5f));
-
-                // Center Mid axis line
-                g.setColour(pal.headerTitle.withAlpha(0.6f));
-                g.drawVerticalLine(static_cast<int>(centerX), topY, baseY);
-
-                g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-                g.setColour(soloLow ? pal.meterRedZone : pal.headerTitle.withAlpha(0.85f));
-                juce::String modeTag = soloLow ? "SOLO LOW" : (widthPct < 5.0f ? "MONO SUB" : (widthPct > 105.0f ? "M/S WIDE" : "M/S CONTOUR"));
-                g.drawText(juce::String(static_cast<int>(xoverHz)) + " Hz // " + modeTag,
-                           dispRect.reduced(6.0f, 3.0f).toNearestInt(), juce::Justification::bottomRight);
-            }
-        }
-
-        // Bottom neon Edge Underglow Bar on active modules
-        if (active) {
-            g.setColour(modAccent);
-            g.fillRoundedRectangle(secRect.getCentreX() - 36.0f, secRect.getBottom() - 3.0f, 72.0f, 3.0f, 1.5f);
+        if (index == 1) {
+            paintStereoDisplay(g, display, active);
+        } else {
+            paintFilterDisplay(g, display, index == 0, active);
         }
     }
+
+    if (active) {
+        g.setColour(accent);
+        g.fillRoundedRectangle(bay.getCentreX() - 36.0f, bay.getBottom() - 3.0f, 72.0f, 3.0f, 1.5f);
+    }
+}
+
+void AnalogMasterEditor::paintFilterDisplay(juce::Graphics& g, juce::Rectangle<float> area, bool isHighPass, bool active) const {
+    const auto& pal = lookAndFeel_.getPalette();
+    const juce::Colour trace = active ? pal.accentPrimary : pal.headerSub.withAlpha(0.45f);
+
+    auto inner = area.reduced(6.0f, 4.0f);
+    const auto readout = inner.removeFromBottom(11.0f);
+    const auto plot = inner.withTrimmedBottom(2.0f);
+
+    const double sampleRate = processor_.getSampleRate() > 0.0 ? processor_.getSampleRate() : 48000.0;
+    const double cutoff = (isHighPass ? lowCutFreqSlider_ : highCutFreqSlider_).getValue();
+    const int slopeIndex = std::max(0, (isHighPass ? lowCutSlopeBox_ : highCutSlopeBox_).getSelectedItemIndex());
+    const auto slope = static_cast<analog_master::core::FilterSlope>(slopeIndex);
+    const int order = analog_master::core::slopeToOrder(slope);
+    const auto design = isHighPass
+        ? analog_master::core::designButterworthHighPass(sampleRate, cutoff, order)
+        : analog_master::core::designButterworthLowPass(sampleRate, cutoff, order);
+
+    const double minF = isHighPass ? 10.0 : 1000.0;
+    const double maxF = isHighPass ? 1000.0 : std::min(30000.0, sampleRate * 0.499);
+    const double logSpan = std::log(maxF / minF);
+    constexpr double kFloorDb = -48.0;
+
+    auto xFor = [&](double f) { return plot.getX() + static_cast<float>(std::log(f / minF) / logSpan) * plot.getWidth(); };
+    auto yFor = [&](double db) { return plot.getY() + static_cast<float>(std::clamp(db, kFloorDb, 0.0) / kFloorDb) * plot.getHeight(); };
+
+    g.setColour(pal.hudGrid.withAlpha(0.25f));
+    for (const double f : { 20.0, 50.0, 100.0, 200.0, 500.0, 2000.0, 5000.0, 10000.0, 20000.0 }) {
+        if (f > minF && f < maxF) {
+            g.drawVerticalLine(static_cast<int>(xFor(f)), plot.getY(), plot.getBottom());
+        }
+    }
+    g.drawHorizontalLine(static_cast<int>(yFor(-24.0)), plot.getX(), plot.getRight());
+
+    juce::Path curve;
+    constexpr int kSteps = 80;
+    for (int s = 0; s <= kSteps; ++s) {
+        const double f = minF * std::exp(logSpan * static_cast<double>(s) / kSteps);
+        const juce::Point<float> p(xFor(f), yFor(filterResponseDb(design, f, sampleRate)));
+        if (s == 0) {
+            curve.startNewSubPath(p);
+        } else {
+            curve.lineTo(p);
+        }
+    }
+    juce::Path fill(curve);
+    fill.lineTo(plot.getRight(), plot.getBottom());
+    fill.lineTo(plot.getX(), plot.getBottom());
+    fill.closeSubPath();
+
+    g.setColour(trace.withAlpha(active ? 0.18f : 0.06f));
+    g.fillPath(fill);
+    g.setColour(trace);
+    g.strokePath(curve, juce::PathStrokeType(1.6f));
+
+    g.setColour(pal.headerTitle);
+    g.fillEllipse(juce::Rectangle<float>(5.0f, 5.0f).withCentre({ xFor(std::clamp(cutoff, minF, maxF)), yFor(-3.0) }));
+
+    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+    g.setColour(pal.headerTitle.withAlpha(0.85f));
+    const char* freqParamId = isHighPass ? analog_master::params::kLowCutFreq : analog_master::params::kHighCutFreq;
+    g.drawText(processor_.parameters.getParameter(freqParamId)->getCurrentValueAsText(), readout, juce::Justification::centredLeft);
+    g.drawText(juce::String(analog_master::core::slopeToString(slope)), readout, juce::Justification::centredRight);
+}
+
+void AnalogMasterEditor::paintStereoDisplay(juce::Graphics& g, juce::Rectangle<float> area, bool active) const {
+    const auto& pal = lookAndFeel_.getPalette();
+    const juce::Colour trace = active ? pal.accentPrimary : pal.headerSub.withAlpha(0.45f);
+
+    auto inner = area.reduced(6.0f, 4.0f);
+    const auto readout = inner.removeFromBottom(11.0f);
+    const auto plot = inner.withTrimmedBottom(2.0f);
+
+    const float widthPct = static_cast<float>(stereoWidthSlider_.getValue());
+    const bool soloLow = stereoSoloButton_.getToggleState();
+    const float apexY = plot.getBottom();
+    const float topY = plot.getY();
+
+    // The dashed lines mark 100% width
+    const float fullSpread = plot.getWidth() * 0.46f;
+    const float spread = std::max(1.0f, fullSpread * widthPct / 200.0f);
+    const float unityX = fullSpread * 0.5f;
+
+    juce::Path cone;
+    cone.startNewSubPath(plot.getCentreX(), apexY);
+    cone.lineTo(plot.getCentreX() - spread, topY);
+    cone.lineTo(plot.getCentreX() + spread, topY);
+    cone.closeSubPath();
+    g.setColour(trace.withAlpha(active ? 0.22f : 0.08f));
+    g.fillPath(cone);
+    g.setColour(trace);
+    g.strokePath(cone, juce::PathStrokeType(1.4f));
+
+    const float dashes[] = { 3.0f, 3.0f };
+    g.setColour(pal.headerTitle.withAlpha(0.45f));
+    for (const float side : { -1.0f, 1.0f }) {
+        g.drawDashedLine(juce::Line<float>(plot.getCentreX(), apexY, plot.getCentreX() + side * unityX, topY), dashes, 2, 1.0f);
+    }
+    g.setColour(pal.headerTitle.withAlpha(0.35f));
+    g.drawVerticalLine(static_cast<int>(plot.getCentreX()), topY, apexY);
+
+    juce::String mode = "WIDE";
+    if (widthPct < 0.5f) {
+        mode = "MONO";
+    } else if (widthPct < 99.5f) {
+        mode = "NARROW";
+    } else if (widthPct < 100.5f) {
+        mode = "UNCHANGED";
+    }
+
+    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+    g.setColour(pal.headerTitle.withAlpha(0.85f));
+    const auto crossoverText = processor_.parameters.getParameter(analog_master::params::kStereoFreq)->getCurrentValueAsText();
+    g.drawText("BELOW " + crossoverText, readout, juce::Justification::centredLeft);
+    g.setColour(soloLow ? pal.accentSecondary : pal.headerTitle.withAlpha(0.85f));
+    g.drawText(soloLow ? "LOWS ONLY" : mode, readout, juce::Justification::centredRight);
 }
 
 void AnalogMasterEditor::resized() {
     const float width = static_cast<float>(getWidth());
-    const float height = static_cast<float>(getHeight());
 
-    // Header Look Selector
     themeLabel_.setBounds(static_cast<int>(width - 224.0f), 17, 50, 26);
     themeBox_.setBounds(static_cast<int>(width - 170.0f), 17, 136, 26);
 
-    const float sectionY = 70.0f;
-    const float sectionH = height - sectionY - 22.0f;
-    const float sectionMargin = 32.0f;
-    const float totalAvailW = width - sectionMargin * 2.0f;
-    const float sectionSpacing = 12.0f;
-    const float sectionW = (totalAvailW - sectionSpacing * 3.0f) * 0.25f;
-
-    auto getSectionRect = [&](int index) {
-        const float sx = sectionMargin + static_cast<float>(index) * (sectionW + sectionSpacing);
-        return juce::Rectangle<float>(sx, sectionY, sectionW, sectionH);
-    };
-
-    // SECTION 0: LOW CUT EQ
+    // 1. Low Cut
     {
-        auto r = getSectionRect(0).reduced(14.0f);
-        r.removeFromTop(98.0f); // Header + Holographic HPF Curve Display
-
+        auto r = moduleBayBounds(0).reduced(14.0f);
+        r.removeFromTop(98.0f);
         lowCutFreqLabel_.setBounds(r.removeFromTop(18.0f).toNearestInt());
         lowCutFreqSlider_.setBounds(r.removeFromTop(165.0f).toNearestInt());
-
         r.removeFromTop(12.0f);
         lowCutSlopeLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
         lowCutSlopeBox_.setBounds(r.removeFromTop(28.0f).reduced(12.0f, 0.0f).toNearestInt());
-
         r.removeFromTop(18.0f);
         lowCutBypassButton_.setBounds(r.removeFromTop(36.0f).reduced(28.0f, 0.0f).toNearestInt());
     }
 
-    // SECTION 1: LOW STEREO FIELD
+    // 2. Low-End Stereo Field
     {
-        auto r = getSectionRect(1).reduced(14.0f);
-        r.removeFromTop(96.0f); // Header + Holographic Stereo Cone Display
-
+        auto r = moduleBayBounds(1).reduced(14.0f);
+        r.removeFromTop(96.0f);
         stereoWidthLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
         stereoWidthSlider_.setBounds(r.removeFromTop(116.0f).toNearestInt());
-
         r.removeFromTop(4.0f);
         stereoFreqLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
         stereoFreqSlider_.setBounds(r.removeFromTop(116.0f).toNearestInt());
-
         r.removeFromTop(8.0f);
-        auto toggleArea = r.removeFromTop(36.0f);
-        stereoBypassButton_.setBounds(toggleArea.removeFromLeft(toggleArea.getWidth() * 0.5f).reduced(3.0f, 0.0f).toNearestInt());
-        stereoSoloButton_.setBounds(toggleArea.reduced(3.0f, 0.0f).toNearestInt());
+        auto toggles = r.removeFromTop(36.0f);
+        stereoBypassButton_.setBounds(toggles.removeFromLeft(toggles.getWidth() * 0.5f).reduced(3.0f, 0.0f).toNearestInt());
+        stereoSoloButton_.setBounds(toggles.reduced(3.0f, 0.0f).toNearestInt());
     }
 
-    // SECTION 2: HIGH CUT EQ
+    // 3. High Cut
     {
-        auto r = getSectionRect(2).reduced(14.0f);
-        r.removeFromTop(98.0f); // Header + Holographic LPF Curve Display
-
+        auto r = moduleBayBounds(2).reduced(14.0f);
+        r.removeFromTop(98.0f);
         highCutFreqLabel_.setBounds(r.removeFromTop(18.0f).toNearestInt());
         highCutFreqSlider_.setBounds(r.removeFromTop(165.0f).toNearestInt());
-
         r.removeFromTop(12.0f);
         highCutSlopeLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
         highCutSlopeBox_.setBounds(r.removeFromTop(28.0f).reduced(12.0f, 0.0f).toNearestInt());
-
         r.removeFromTop(18.0f);
         highCutBypassButton_.setBounds(r.removeFromTop(36.0f).reduced(28.0f, 0.0f).toNearestInt());
     }
 
-    // SECTION 3: MASTER OUTPUT
+    // 4. Master Output
     {
-        auto r = getSectionRect(3).reduced(14.0f);
+        auto r = moduleBayBounds(3).reduced(14.0f);
         r.removeFromTop(44.0f);
-
         meter_.setBounds(r.removeFromTop(148.0f).reduced(2.0f, 0.0f).toNearestInt());
-
         r.removeFromTop(12.0f);
         masterGainLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
         masterGainSlider_.setBounds(r.removeFromTop(135.0f).toNearestInt());
-
         r.removeFromTop(12.0f);
-        masterBypassButton_.setBounds(r.removeFromTop(36.0f).reduced(20.0f, 0.0f).toNearestInt());
+        masterPowerButton_.setBounds(r.removeFromTop(36.0f).reduced(20.0f, 0.0f).toNearestInt());
     }
 }

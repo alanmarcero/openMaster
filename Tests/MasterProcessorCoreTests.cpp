@@ -398,3 +398,25 @@ TEST_CASE("MasterProcessorCore VU reaches 99 percent of a step within 300 ms", "
     REQUIRE(runSine(12000) < 0.99f);
     REQUIRE(runSine(2400) >= 0.985f);
 }
+
+TEST_CASE("MasterProcessorCore holds a clip until the meter reads it", "[master]") {
+    const double fs = 48000.0;
+    MasterProcessorCore processor;
+    processor.prepare(fs);
+    processor.setLowCutBypassed(true);
+    processor.setHighCutBypassed(true);
+    processor.setStereoFieldBypassed(true);
+
+    std::vector<float> clipBlock(128, 1.05f);
+    processor.processBlock(clipBlock.data(), clipBlock.data(), 128);
+    std::vector<float> safeBlock(128, 0.5f);
+    processor.processBlock(safeBlock.data(), safeBlock.data(), 128);
+
+    const auto firstRead = processor.takeMeterLevels();
+    const auto secondRead = processor.takeMeterLevels();
+
+    REQUIRE(firstRead.clipL);
+    REQUIRE(firstRead.clipR);
+    REQUIRE_FALSE(secondRead.clipL);
+    REQUIRE_FALSE(secondRead.clipR);
+}

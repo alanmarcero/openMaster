@@ -135,10 +135,8 @@ public:
 
     void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override;
 
-    void drawVintageJewelLed(juce::Graphics& g, juce::Rectangle<float> bounds, bool isActive) const;
     void drawRackScrew(juce::Graphics& g, float centerX, float centerY, float radius) const;
 
-    static void drawVintageJewelLed(juce::Graphics& g, juce::Rectangle<float> bounds, bool isActive, const ThemePalette& palette);
     static void drawRackScrew(juce::Graphics& g, float centerX, float centerY, float radius, const ThemePalette& palette);
 
     static ThemePalette createPalette(Theme theme);
