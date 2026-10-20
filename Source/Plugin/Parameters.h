@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ButterworthCoeffs.h"
+#include <array>
 #include <juce_audio_processors/juce_audio_processors.h>
 
 namespace analog_master::params {
@@ -22,6 +23,10 @@ inline constexpr const char* kMasterGain = "master_gain";
 inline constexpr const char* kMasterPower = "master_power";
 
 inline constexpr const char* kTheme = "theme";
+inline constexpr const char* kMeterReference = "meter_ref";
+
+// dBFS RMS that reads 0 VU, in the order of the "meter_ref" choices.
+inline constexpr std::array<float, 7> kMeterReferenceDbfs = { -8.0f, -10.0f, -12.0f, -14.0f, -16.0f, -18.0f, -20.0f };
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 

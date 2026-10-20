@@ -117,12 +117,18 @@ AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
 
     // 4. Master Output
     addAndMakeVisible(meter_);
+    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(processor_.parameters.getParameter(kMeterReference))) {
+        meterReferenceBox_.addItemList(choice->choices, 1);
+    }
+    meterReferenceBox_.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(meterReferenceBox_);
     setupKnob(masterGainSlider_, masterGainLabel_, "OUTPUT TRIM");
     setScale(masterGainSlider_, { -18.0, -9.0, 0.0, 9.0, 18.0 }, { "-18", "-9", "0", "+9", "+18" });
     setupButton(masterPowerButton_, "POWER ON", "BYPASSED");
     masterPowerButton_.getProperties().set("useSecondaryAccent", true);
 
     themeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kTheme, themeBox_);
+    meterReferenceAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kMeterReference, meterReferenceBox_);
 
     lowCutFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kLowCutFreq, lowCutFreqSlider_);
     lowCutSlopeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kLowCutSlope, lowCutSlopeBox_);
@@ -174,6 +180,8 @@ void AnalogMasterEditor::applyTheme(int themeIndex) {
 }
 
 void AnalogMasterEditor::timerCallback() {
+    const auto referenceIndex = static_cast<size_t>(processor_.parameters.getRawParameterValue(analog_master::params::kMeterReference)->load());
+    meter_.setReferenceLevel(analog_master::params::kMeterReferenceDbfs[referenceIndex]);
     meter_.setLevels(processor_.takeMeterLevels());
 }
 
@@ -485,9 +493,11 @@ void AnalogMasterEditor::resized() {
         auto r = moduleBayBounds(3).reduced(14.0f);
         r.removeFromTop(44.0f);
         meter_.setBounds(r.removeFromTop(148.0f).reduced(2.0f, 0.0f).toNearestInt());
-        r.removeFromTop(12.0f);
+        r.removeFromTop(6.0f);
+        meterReferenceBox_.setBounds(r.removeFromTop(24.0f).reduced(12.0f, 0.0f).toNearestInt());
+        r.removeFromTop(8.0f);
         masterGainLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
-        masterGainSlider_.setBounds(r.removeFromTop(135.0f).toNearestInt());
+        masterGainSlider_.setBounds(r.removeFromTop(113.0f).toNearestInt());
         r.removeFromTop(12.0f);
         masterPowerButton_.setBounds(r.removeFromTop(36.0f).reduced(20.0f, 0.0f).toNearestInt());
     }

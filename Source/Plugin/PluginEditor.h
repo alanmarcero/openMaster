@@ -55,6 +55,7 @@ private:
 
     // 4. Master Output & Meters
     analog_master::ui::VintageMeter meter_;
+    juce::ComboBox meterReferenceBox_;
     juce::Slider masterGainSlider_;
     juce::ToggleButton masterPowerButton_;
     juce::Label masterGainLabel_;
@@ -64,6 +65,7 @@ private:
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
     std::unique_ptr<ComboBoxAttachment> themeAttach_;
+    std::unique_ptr<ComboBoxAttachment> meterReferenceAttach_;
 
     std::unique_ptr<SliderAttachment> lowCutFreqAttach_;
     std::unique_ptr<ComboBoxAttachment> lowCutSlopeAttach_;

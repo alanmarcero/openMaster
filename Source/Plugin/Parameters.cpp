@@ -140,6 +140,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
         0 // Default to Cyber Neon
     ));
 
+    juce::StringArray meterReferenceChoices;
+    for (const float dbfs : kMeterReferenceDbfs) {
+        meterReferenceChoices.add("0 VU = " + juce::String(juce::roundToInt(dbfs)) + " dBFS");
+    }
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{ kMeterReference, 1 },
+        "VU Reference",
+        meterReferenceChoices,
+        3 // -14 dBFS suits mastered material; -18 dBFS is the EBU R68 tracking level
+    ));
+
     return layout;
 }
 

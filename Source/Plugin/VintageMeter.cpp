@@ -63,6 +63,10 @@ void VintageMeter::updateChannel(ChannelState& state, float vu, float peak, bool
     state.clipGlow = clip ? 1.0f : std::max(0.0f, state.clipGlow - 0.025f);
 }
 
+void VintageMeter::setReferenceLevel(float dbfs) {
+    referenceDbfs_ = dbfs;
+}
+
 void VintageMeter::setThemePalette(const ThemePalette& palette) {
     palette_ = palette;
     repaint();
@@ -121,17 +125,14 @@ void VintageMeter::paintChannel(juce::Graphics& g, juce::Rectangle<float> area, 
         const float a = dbToAngle(t.db);
         g.setColour(t.db >= 0.0f ? palette_.meterRedZone : palette_.meterScaleText);
         g.drawLine(juce::Line<float>(polar(pivot, radius - 4.0f, a), polar(pivot, radius + 3.0f, a)), 1.2f);
-        g.drawText(t.label, juce::Rectangle<float>(18.0f, 9.0f).withCentre(polar(pivot, radius - 12.0f, a)), juce::Justification::centred);
+        // Outside the arc, so the needle at rest does not cover the -20 label
+        const auto labelArea = juce::Rectangle<float>(18.0f, 9.0f).withCentre(polar(pivot, radius + 11.0f, a)).constrainedWithin(face);
+        g.drawText(t.label, labelArea, juce::Justification::centred);
     }
 
-    if (state.peakHoldDb > kScaleMinDb) {
-        const float a = dbToAngle(state.peakHoldDb);
-        g.setColour(state.peakHoldDb >= 0.0f ? palette_.meterRedZone : palette_.headerTitle);
-        g.drawLine(juce::Line<float>(polar(pivot, radius + 1.0f, a), polar(pivot, radius + 7.0f, a)), 2.0f);
-    }
-
-    const auto tip = polar(pivot, radius + 4.0f, dbToAngle(state.vuDb));
-    const bool needleHot = state.vuDb >= 0.0f;
+    const float vu = state.vuDb - referenceDbfs_;
+    const auto tip = polar(pivot, radius + 4.0f, dbToAngle(vu));
+    const bool needleHot = vu >= 0.0f;
     g.setColour(needleHot ? palette_.meterRedZone.withAlpha(0.45f) : palette_.meterNeedleGlow);
     g.drawLine(juce::Line<float>(pivot, tip), 3.5f);
     g.setColour(needleHot ? palette_.meterRedZone : palette_.meterNeedle);
@@ -146,7 +147,7 @@ void VintageMeter::paintChannel(juce::Graphics& g, juce::Rectangle<float> area, 
     const auto readout = face.removeFromBottom(readoutH).reduced(5.0f, 0.0f);
     g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
     g.setColour(palette_.meterScaleText);
-    g.drawText("VU " + formatDb(state.vuDb), readout, juce::Justification::centredLeft);
+    g.drawText("VU " + (state.vuDb <= kFloorDb ? juce::String("-inf") : formatDb(vu)), readout, juce::Justification::centredLeft);
     g.setColour(state.peakHoldDb >= 0.0f ? palette_.meterRedZone : palette_.headerTitle.withAlpha(0.85f));
     g.drawText("PK " + formatDb(state.peakHoldDb), readout, juce::Justification::centredRight);
 }

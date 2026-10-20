@@ -261,9 +261,9 @@ TEST_CASE("MasterProcessorCore computes steady IEC VU levels", "[master]") {
     processor.processBlock(sineL.data(), sineR.data(), numSamples);
 
     auto levels = processor.meterLevels();
-    // For a 1.0 peak sine wave calibrated to VU, VU level should reach ~1.0
-    REQUIRE_THAT(levels.vuL, WithinAbs(1.0f, 0.05f));
-    REQUIRE_THAT(levels.vuR, WithinAbs(1.0f, 0.05f));
+    // A VU reads a sine's RMS
+    REQUIRE_THAT(levels.vuL, WithinAbs(std::numbers::sqrt2 / 2.0, 0.005));
+    REQUIRE_THAT(levels.vuR, WithinAbs(std::numbers::sqrt2 / 2.0, 0.005));
 }
 
 TEST_CASE("MasterProcessorCore High Cut remains spike-free during abrupt 16-pole cutoff modulation", "[master]") {
@@ -395,8 +395,9 @@ TEST_CASE("MasterProcessorCore VU reaches 99 percent of a step within 300 ms", "
     };
 
     // 250 ms: below 99%. 300 ms: at 99%.
-    REQUIRE(runSine(12000) < 0.99f);
-    REQUIRE(runSine(2400) >= 0.985f);
+    constexpr float kSineRms = std::numbers::sqrt2_v<float> / 2.0f;
+    REQUIRE(runSine(12000) < 0.99f * kSineRms);
+    REQUIRE(runSine(2400) >= 0.985f * kSineRms);
 }
 
 TEST_CASE("MasterProcessorCore holds a clip until the meter reads it", "[master]") {
@@ -419,4 +420,32 @@ TEST_CASE("MasterProcessorCore holds a clip until the meter reads it", "[master]
     REQUIRE(firstRead.clipR);
     REQUIRE_FALSE(secondRead.clipL);
     REQUIRE_FALSE(secondRead.clipR);
+}
+
+TEST_CASE("MasterProcessorCore correlation speed does not depend on the block size", "[master]") {
+    const double fs = 48000.0;
+    const auto correlationAfterPhaseFlip = [fs](int blockSize) {
+        MasterProcessorCore processor;
+        processor.prepare(fs);
+        processor.setLowCutBypassed(true);
+        processor.setHighCutBypassed(true);
+        processor.setStereoFieldBypassed(true);
+        const auto run = [&](float rightSign) {
+            std::vector<float> left(4096);
+            std::vector<float> right(4096);
+            for (int i = 0; i < 4096; ++i) {
+                left[i] = 0.5f * static_cast<float>(std::sin(2.0 * std::numbers::pi * 440.0 * i / fs));
+                right[i] = rightSign * left[i];
+            }
+            for (int offset = 0; offset < 4096; offset += blockSize) {
+                processor.processBlock(left.data() + offset, right.data() + offset, blockSize);
+            }
+        };
+        run(1.0f);
+        run(1.0f);
+        run(-1.0f);
+        return processor.meterLevels().correlation;
+    };
+
+    REQUIRE_THAT(correlationAfterPhaseFlip(64), WithinAbs(correlationAfterPhaseFlip(4096), 0.02));
 }

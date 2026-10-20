@@ -10,7 +10,7 @@ namespace analog_master::core {
 struct MeterLevels {
     float peakL = 0.0f;
     float peakR = 0.0f;
-    float vuL = 0.0f;
+    float vuL = 0.0f; // sine RMS calibration: a full-scale sine reads 0.707
     float vuR = 0.0f;
     bool clipL = false;
     bool clipR = false;
@@ -106,6 +106,9 @@ private:
     std::atomic<bool> meterClipL_{ false };
     std::atomic<bool> meterClipR_{ false };
     std::atomic<float> meterCorrelation_{ 1.0f };
+    double correlationLL_ = 0.0;
+    double correlationRR_ = 0.0;
+    double correlationLR_ = 0.0;
 };
 
 } // namespace analog_master::core

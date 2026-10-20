@@ -7,7 +7,7 @@
 namespace analog_master::ui {
 
 // Twin VU meters above a stereo phase correlation bar.
-// The needle shows the VU level. The tick on the arc shows the held sample peak.
+// The needle shows the VU level against the reference. The readout shows the held sample peak in dBFS.
 class VintageMeter : public juce::Component {
 public:
     VintageMeter();
@@ -15,6 +15,7 @@ public:
     // The peak hold counts calls at 30 Hz
     void setLevels(const core::MeterLevels& levels);
     void setThemePalette(const ThemePalette& palette);
+    void setReferenceLevel(float dbfs);
     void paint(juce::Graphics& g) override;
 
 private:
@@ -32,6 +33,7 @@ private:
     ChannelState left_;
     ChannelState right_;
     float correlation_ = 1.0f;
+    float referenceDbfs_ = -14.0f;
     ThemePalette palette_ { AnalogLookAndFeel::createPalette(Theme::CyberNeon) };
 };
 

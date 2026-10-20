@@ -1,6 +1,7 @@
 #include "MasterProcessorCore.h"
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 namespace analog_master::core {
 
@@ -46,6 +47,9 @@ void MasterProcessorCore::reset() noexcept {
     meterClipL_.store(false, std::memory_order_relaxed);
     meterClipR_.store(false, std::memory_order_relaxed);
     meterCorrelation_.store(1.0f, std::memory_order_relaxed);
+    correlationLL_ = 0.0;
+    correlationRR_ = 0.0;
+    correlationLR_ = 0.0;
 }
 
 void MasterProcessorCore::setLowCutFrequency(double freqHz) noexcept {
@@ -202,19 +206,24 @@ void MasterProcessorCore::processBlock(float* leftChannel, float* rightChannel, 
     currentPeakL *= peakDecay;
     currentPeakR *= peakDecay;
 
-    // IEC 60268-17 VU: 99% rise in 300 ms.
+    // IEC 60268-17 VU: 99% rise in 300 ms. A VU rectifies and averages, and is calibrated so a sine reads its RMS.
+    constexpr float kSineRmsPerMeanAbs = std::numbers::pi_v<float> / (2.0f * std::numbers::sqrt2_v<float>);
     const float vuTau = 0.3f / std::log(100.0f);
     const float vuAlpha = 1.0f - std::exp(-static_cast<float>(numSamples) / (vuTau * static_cast<float>(sampleRate_)));
     const float meanL = sumAbsL / static_cast<float>(numSamples);
     const float meanR = sumAbsR / static_cast<float>(numSamples);
-    currentVuL += vuAlpha * (meanL * 1.5708f - currentVuL);
-    currentVuR += vuAlpha * (meanR * 1.5708f - currentVuR);
+    currentVuL += vuAlpha * (meanL * kSineRmsPerMeanAbs - currentVuL);
+    currentVuR += vuAlpha * (meanR * kSineRmsPerMeanAbs - currentVuR);
 
     if (rightChannel != nullptr) {
-        const double denom = std::sqrt(sumLL * sumRR);
-        if (denom > 1e-9) {
-            const float instCorr = std::clamp(static_cast<float>(sumLR / denom), -1.0f, 1.0f);
-            currentCorr += std::max(0.25f, vuAlpha) * (instCorr - currentCorr);
+        // Smooth the products, then divide. The reading then does not depend on the host block size.
+        const double n = static_cast<double>(numSamples);
+        correlationLL_ += vuAlpha * (sumLL / n - correlationLL_);
+        correlationRR_ += vuAlpha * (sumRR / n - correlationRR_);
+        correlationLR_ += vuAlpha * (sumLR / n - correlationLR_);
+        const double denom = std::sqrt(correlationLL_ * correlationRR_);
+        if (denom > 1e-12) {
+            currentCorr = std::clamp(static_cast<float>(correlationLR_ / denom), -1.0f, 1.0f);
         }
     } else {
         currentCorr = 1.0f;
