@@ -11,6 +11,7 @@ endif()
 
 option(AMS_BUILD_PLUGIN "Build the VST3 plugin" ON)
 option(AMS_BUILD_TESTS "Build the unit tests" ON)
+option(AMS_BUILD_HOST_CHECKS "Build native editor and state integration checks" OFF)
 
 include(FetchContent)
 
@@ -20,6 +21,8 @@ add_library(open_master_core STATIC
     Source/Core/MultiPoleFilter.cpp
     Source/Core/LinkwitzRiley.cpp
     Source/Core/StereoFieldShaper.cpp
+    Source/Core/LoudnessMeter.cpp
+    Source/Core/MasteringStages.cpp
     Source/Core/MasterProcessorCore.cpp
 )
 target_include_directories(open_master_core PUBLIC Source/Core)
@@ -35,7 +38,7 @@ if(AMS_BUILD_PLUGIN)
     juce_add_binary_data(OpenMasterAssets
         SOURCES
             assets/alan_marcero_logo.jpg
-            assets/cyber_chassis_backdrop.jpg)
+            assets/analog-cyber-faceplate.png)
     set_target_properties(OpenMasterAssets PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
     juce_add_plugin(openMaster
@@ -93,11 +96,25 @@ if(AMS_BUILD_TESTS)
         Tests/BiquadFilterTests.cpp
         Tests/ButterworthCoeffsTests.cpp
         Tests/StereoFieldShaperTests.cpp
-        Tests/MasterProcessorCoreTests.cpp)
+        Tests/MasterProcessorCoreTests.cpp
+        Tests/LoudnessMeterTests.cpp
+        Tests/MasteringStagesTests.cpp
+        Tests/MasteringChainTests.cpp
+        Tests/RealtimeTests.cpp)
 
     target_link_libraries(open_master_tests PRIVATE open_master_core Catch2::Catch2WithMain)
 
     enable_testing()
     include(Catch)
     catch_discover_tests(open_master_tests)
+endif()
+
+if(AMS_BUILD_PLUGIN AND AMS_BUILD_HOST_CHECKS)
+    add_executable(open_master_host_checks Tests/PluginHostChecks.cpp)
+    target_include_directories(open_master_host_checks PRIVATE Source/Plugin Source/Core)
+    target_link_libraries(open_master_host_checks PRIVATE openMaster juce::juce_audio_utils)
+    target_compile_definitions(open_master_host_checks PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1)
+    if(AMS_BUILD_TESTS)
+        add_test(NAME "Native editor and state integration" COMMAND open_master_host_checks)
+    endif()
 endif()

@@ -26,6 +26,10 @@ for relative in ("modules/juce_graphics/image_formats/jpglib/README", "modules/j
         target = package / "licenses" / "JUCE" / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+for source in Path("third_party/notices").glob("*.txt"):
+    target = package / "licenses" / source.name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
 repository = os.environ.get("GITHUB_REPOSITORY", "")
 revision = os.environ.get("GITHUB_SHA", "")
 (package / "SOURCE.txt").write_text(

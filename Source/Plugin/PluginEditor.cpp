@@ -1,504 +1,354 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
-#include "ButterworthCoeffs.h"
-#include <algorithm>
 #include <cmath>
-#include <complex>
-#include <numbers>
 
 namespace {
-
-constexpr int kEditorWidth = 1040;
-constexpr int kEditorHeight = 540;
-constexpr float kBayTop = 70.0f;
-constexpr float kBayMargin = 32.0f;
-constexpr float kBaySpacing = 12.0f;
-constexpr float kBayBottomMargin = 22.0f;
-
-void setScale(juce::Slider& slider, std::initializer_list<double> values, std::initializer_list<const char*> labels) {
-    juce::Array<juce::var> valueArray;
-    juce::Array<juce::var> labelArray;
-    for (const double v : values) {
-        valueArray.add(v);
-    }
-    for (const char* l : labels) {
-        labelArray.add(juce::String(l));
-    }
-    slider.getProperties().set("scaleValues", valueArray);
-    slider.getProperties().set("scaleLabels", labelArray);
-}
-
-void setStateText(juce::ToggleButton& button, const juce::String& onText, const juce::String& offText) {
-    button.getProperties().set("onText", onText);
-    button.getProperties().set("offText", offText);
-}
-
-// Uses the same filter design as the DSP core
-double filterResponseDb(const analog_master::core::FilterDesign& design, double freqHz, double sampleRate) {
-    const std::complex<double> zInv = std::polar(1.0, -2.0 * std::numbers::pi * freqHz / sampleRate);
-    std::complex<double> response = 1.0;
-    for (const auto& s : design) {
-        response *= (s.b0 + zInv * (s.b1 + zInv * s.b2)) / (1.0 + zInv * (s.a1 + zInv * s.a2));
-    }
-    return 20.0 * std::log10(std::max(std::abs(response), 1e-9));
-}
-
+constexpr const char *sectionNames[]{"01  FILTERS",  "02  TONE",  "03  STEREO",
+                                     "04  DYNAMICS", "05  COLOR", "06  OUTPUT"};
+constexpr const char *sectionDescriptions[]{"Clean the ends",      "Shape the balance",
+                                            "Focus the low end",   "Control the movement",
+                                            "Add weight and edge", "Set the final level"};
 } // namespace
 
-AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor& owner)
+AnalogMasterEditor::AnalogMasterEditor(AnalogMasterProcessor &owner)
     : AudioProcessorEditor(&owner), processor_(owner) {
-    using namespace analog_master::params;
     setLookAndFeel(&lookAndFeel_);
-
-    logoImage_ = juce::ImageCache::getFromMemory(BinaryData::alan_marcero_logo_jpg, BinaryData::alan_marcero_logo_jpgSize);
-    backdropImage_ = juce::ImageCache::getFromMemory(BinaryData::cyber_chassis_backdrop_jpg, BinaryData::cyber_chassis_backdrop_jpgSize);
-
-    auto setupLabel = [this](juce::Label& label, const juce::String& text) {
-        label.setText(text, juce::dontSendNotification);
-        label.setJustificationType(juce::Justification::centred);
-        label.setFont(juce::FontOptions(10.5f, juce::Font::bold));
-        addAndMakeVisible(label);
-    };
-
-    // The parameter strings include the unit
-    auto setupKnob = [this, &setupLabel](juce::Slider& slider, juce::Label& label, const juce::String& text) {
-        slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 96, 18);
-        slider.onValueChange = [this] { repaint(); };
-        addAndMakeVisible(slider);
-        setupLabel(label, text);
-    };
-
-    auto setupSlopeBox = [this, &setupLabel](juce::ComboBox& box, juce::Label& label, const char* paramId) {
-        if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(processor_.parameters.getParameter(paramId))) {
-            box.addItemList(choice->choices, 1);
-        }
-        box.setJustificationType(juce::Justification::centred);
-        box.onChange = [this] { repaint(); };
-        addAndMakeVisible(box);
-        setupLabel(label, "SLOPE");
-    };
-
-    auto setupButton = [this](juce::ToggleButton& button, const juce::String& onText, const juce::String& offText) {
-        setStateText(button, onText, offText);
-        button.onClick = [this] { repaint(); };
+    backdrop_ = juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png,
+                                                BinaryData::analogcyberfaceplate_pngSize);
+    logo_ = juce::ImageCache::getFromMemory(BinaryData::alan_marcero_logo_jpg,
+                                            BinaryData::alan_marcero_logo_jpgSize);
+    knob(primary_, "low_cut_freq", "LOW CUT", 0);
+    knob(primary_, "high_cut_freq", "HIGH CUT", 0);
+    knob(primary_, "tone_low", "LOW SHELF", 1);
+    knob(primary_, "tone_high", "HIGH SHELF", 1);
+    knob(primary_, "stereo_width", "LOW WIDTH", 2);
+    knob(primary_, "stereo_freq", "CROSSOVER", 2);
+    knob(primary_, "comp_threshold", "COMP THRESHOLD", 3);
+    knob(primary_, "dyn_amount", "DYNAMIC EQ", 3);
+    knob(primary_, "sat_drive", "SATURATION", 4);
+    knob(primary_, "clip_drive", "CLIP DRIVE", 4);
+    knob(primary_, "limit_drive", "LIMIT DRIVE", 5);
+    knob(primary_, "limit_ceiling", "CEILING", 5);
+    toggle(switches_, "low_cut_in", "LOW", 0);
+    toggle(switches_, "high_cut_in", "HIGH", 0);
+    toggle(switches_, "tone_in", "TONE", 1);
+    toggle(switches_, "stereo_in", "STEREO", 2);
+    toggle(switches_, "comp_in", "COMP", 3);
+    toggle(switches_, "dyn_in", "DYN EQ", 3);
+    toggle(switches_, "sat_in", "SAT", 4);
+    toggle(switches_, "clip_in", "CLIP", 4);
+    toggle(switches_, "limit_in", "LIMITER", 5);
+    toggle(header_, "master_power", "POWER");
+    auto &theme = choice(header_, "theme", "");
+    dynamic_cast<juce::ComboBox *>(theme.widget.get())->onChange = [this] { applyTheme(); };
+    choice(header_, "meter_ref", "");
+    dynamic_cast<juce::ToggleButton *>(toggle(header_, "match_bypass", "MATCH BYPASS").widget.get())
+        ->setTooltip("Compare at matched short-term loudness. Attenuates the louder side after 3 seconds; "
+                     "POWER switches wet/dry.");
+    for (size_t i = 0; i < sections_.size(); ++i) {
+        auto &button = sections_[i];
+        button.setButtonText(sectionNames[i]);
+        button.setComponentID("section_" + juce::String(static_cast<int>(i)));
+        button.setTooltip("Show " + juce::String(sectionNames[i]).substring(4).toLowerCase() + " details");
+        button.onClick = [this, i] { showDetails(static_cast<int>(i)); };
         addAndMakeVisible(button);
-    };
-
-    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(processor_.parameters.getParameter(kTheme))) {
-        themeBox_.addItemList(choice->choices, 1);
     }
-    themeBox_.setJustificationType(juce::Justification::centred);
-    themeBox_.onChange = [this] { applyTheme(themeBox_.getSelectedItemIndex()); };
-    addAndMakeVisible(themeBox_);
-    setupLabel(themeLabel_, "THEME");
-    themeLabel_.setJustificationType(juce::Justification::centredRight);
-
-    // 1. Low Cut
-    setupKnob(lowCutFreqSlider_, lowCutFreqLabel_, "FREQUENCY");
-    setScale(lowCutFreqSlider_, { 10.0, 20.0, 40.0, 80.0, 200.0 }, { "10", "20", "40", "80", "200" });
-    setupSlopeBox(lowCutSlopeBox_, lowCutSlopeLabel_, kLowCutSlope);
-    setupButton(lowCutBypassButton_, "ACTIVE", "BYPASSED");
-
-    // 2. Low-End Stereo Field
-    setupKnob(stereoWidthSlider_, stereoWidthLabel_, "WIDTH");
-    setScale(stereoWidthSlider_, { 0.0, 50.0, 100.0, 150.0, 200.0 }, { "MONO", "50", "100", "150", "200" });
-    setupKnob(stereoFreqSlider_, stereoFreqLabel_, "CROSSOVER");
-    setScale(stereoFreqSlider_, { 40.0, 80.0, 120.0, 250.0, 500.0 }, { "40", "80", "120", "250", "500" });
-    setupButton(stereoBypassButton_, "ACTIVE", "BYPASSED");
-    setupButton(stereoSoloButton_, "LOWS ONLY", "FULL MIX");
-    stereoSoloButton_.getProperties().set("useSecondaryAccent", true);
-
-    // 3. High Cut
-    setupKnob(highCutFreqSlider_, highCutFreqLabel_, "FREQUENCY");
-    setScale(highCutFreqSlider_, { 8000.0, 12000.0, 15000.0, 20000.0, 24000.0 }, { "8k", "12k", "15k", "20k", "24k" });
-    setupSlopeBox(highCutSlopeBox_, highCutSlopeLabel_, kHighCutSlope);
-    setupButton(highCutBypassButton_, "ACTIVE", "BYPASSED");
-
-    // 4. Master Output
+    detailMode_.setComponentID("detail_mode");
+    dynamicBand_.setComponentID("dynamic_band");
+    detailMode_.onChange = [this] { showDetails(selected_); };
+    dynamicBand_.addItemList({"LOW BAND", "MID BAND", "HIGH BAND"}, 1);
+    dynamicBand_.setSelectedId(1, juce::dontSendNotification);
+    dynamicBand_.onChange = [this] { showDetails(selected_); };
+    addChildComponent(detailMode_);
+    addChildComponent(dynamicBand_);
+    resetButton_.onClick = [this] { processor_.resetMeters(); };
+    addAndMakeVisible(resetButton_);
     addAndMakeVisible(meter_);
-    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(processor_.parameters.getParameter(kMeterReference))) {
-        meterReferenceBox_.addItemList(choice->choices, 1);
-    }
-    meterReferenceBox_.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(meterReferenceBox_);
-    setupKnob(masterGainSlider_, masterGainLabel_, "OUTPUT TRIM");
-    setScale(masterGainSlider_, { -18.0, -9.0, 0.0, 9.0, 18.0 }, { "-18", "-9", "0", "+9", "+18" });
-    setupButton(masterPowerButton_, "POWER ON", "BYPASSED");
-    masterPowerButton_.getProperties().set("useSecondaryAccent", true);
-
-    themeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kTheme, themeBox_);
-    meterReferenceAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kMeterReference, meterReferenceBox_);
-
-    lowCutFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kLowCutFreq, lowCutFreqSlider_);
-    lowCutSlopeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kLowCutSlope, lowCutSlopeBox_);
-    lowCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kLowCutIn, lowCutBypassButton_);
-
-    stereoFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kStereoFreq, stereoFreqSlider_);
-    stereoWidthAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kStereoWidth, stereoWidthSlider_);
-    stereoBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kStereoIn, stereoBypassButton_);
-    stereoSoloAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kStereoSoloLow, stereoSoloButton_);
-
-    highCutFreqAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kHighCutFreq, highCutFreqSlider_);
-    highCutSlopeAttach_ = std::make_unique<ComboBoxAttachment>(processor_.parameters, kHighCutSlope, highCutSlopeBox_);
-    highCutBypassAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kHighCutIn, highCutBypassButton_);
-
-    masterGainAttach_ = std::make_unique<SliderAttachment>(processor_.parameters, kMasterGain, masterGainSlider_);
-    masterPowerAttach_ = std::make_unique<ButtonAttachment>(processor_.parameters, kMasterPower, masterPowerButton_);
-
-    // Double-click a knob to return it to its default
-    lowCutFreqSlider_.setDoubleClickReturnValue(true, 20.0);
-    stereoWidthSlider_.setDoubleClickReturnValue(true, 0.0);
-    stereoFreqSlider_.setDoubleClickReturnValue(true, 120.0);
-    highCutFreqSlider_.setDoubleClickReturnValue(true, 20000.0);
-    masterGainSlider_.setDoubleClickReturnValue(true, 0.0);
-
-    applyTheme(themeBox_.getSelectedItemIndex());
-
-    setSize(kEditorWidth, kEditorHeight);
+    setSize(1120, 720);
+    showDetails(0);
+    applyTheme();
     startTimerHz(30);
 }
-
 AnalogMasterEditor::~AnalogMasterEditor() {
     stopTimer();
     setLookAndFeel(nullptr);
 }
-
-void AnalogMasterEditor::applyTheme(int themeIndex) {
-    lookAndFeel_.setTheme(static_cast<analog_master::ui::Theme>(std::clamp(themeIndex, 0, 4)));
-    const auto& pal = lookAndFeel_.getPalette();
-    meter_.setThemePalette(pal);
-
-    for (auto* label : { &lowCutFreqLabel_, &lowCutSlopeLabel_, &stereoWidthLabel_, &stereoFreqLabel_,
-                         &highCutFreqLabel_, &highCutSlopeLabel_, &masterGainLabel_ }) {
-        label->setColour(juce::Label::textColourId, pal.labelText);
+AnalogMasterEditor::Control &AnalogMasterEditor::knob(std::vector<std::unique_ptr<Control>> &list,
+                                                      const juce::String &id, const juce::String &title,
+                                                      int section) {
+    auto c = std::make_unique<Control>();
+    c->section = section;
+    auto slider = std::make_unique<juce::Slider>();
+    slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 112, 22);
+    slider->setComponentID(id);
+    slider->setName(title);
+    slider->setTooltip(processor_.parameters.getParameter(id)->getName(100) +
+                       ". Double-click to reset; click the value to type.");
+    slider->setDoubleClickReturnValue(true, processor_.parameters.getParameter(id)->convertFrom0to1(
+                                                processor_.parameters.getParameter(id)->getDefaultValue()));
+    c->label.setText(title, juce::dontSendNotification);
+    c->label.setFont(juce::FontOptions(10.f, juce::Font::bold));
+    c->label.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(c->label);
+    addAndMakeVisible(*slider);
+    c->sliderAttachment = std::make_unique<SliderAttachment>(processor_.parameters, id, *slider);
+    c->widget = std::move(slider);
+    list.push_back(std::move(c));
+    return *list.back();
+}
+AnalogMasterEditor::Control &AnalogMasterEditor::toggle(std::vector<std::unique_ptr<Control>> &list,
+                                                        const juce::String &id, const juce::String &title,
+                                                        int section) {
+    auto c = std::make_unique<Control>();
+    c->section = section;
+    auto button = std::make_unique<juce::ToggleButton>(title);
+    button->setComponentID(id);
+    button->setTooltip(processor_.parameters.getParameter(id)->getName(100));
+    addAndMakeVisible(*button);
+    c->buttonAttachment = std::make_unique<ButtonAttachment>(processor_.parameters, id, *button);
+    c->widget = std::move(button);
+    list.push_back(std::move(c));
+    return *list.back();
+}
+AnalogMasterEditor::Control &AnalogMasterEditor::choice(std::vector<std::unique_ptr<Control>> &list,
+                                                        const juce::String &id, const juce::String &title) {
+    auto c = std::make_unique<Control>();
+    auto combo = std::make_unique<juce::ComboBox>();
+    combo->setComponentID(id);
+    combo->setTooltip(processor_.parameters.getParameter(id)->getName(100));
+    if (auto *p = dynamic_cast<juce::AudioParameterChoice *>(processor_.parameters.getParameter(id)))
+        combo->addItemList(p->choices, 1);
+    combo->setJustificationType(juce::Justification::centred);
+    c->label.setText(title, juce::dontSendNotification);
+    c->label.setFont(juce::FontOptions(10.f, juce::Font::bold));
+    c->label.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(*combo);
+    addAndMakeVisible(c->label);
+    c->comboAttachment = std::make_unique<ComboAttachment>(processor_.parameters, id, *combo);
+    c->widget = std::move(combo);
+    list.push_back(std::move(c));
+    return *list.back();
+}
+void AnalogMasterEditor::showDetails(int section) {
+    if (section != selected_) {
+        detailMode_.clear(juce::dontSendNotification);
+        if (section == 3)
+            detailMode_.addItemList({"COMPRESSOR", "DYNAMIC EQ"}, 1);
+        if (section == 4)
+            detailMode_.addItemList({"SATURATION", "CLIPPER"}, 1);
+        detailMode_.setSelectedId(1, juce::dontSendNotification);
     }
-    themeLabel_.setColour(juce::Label::textColourId, pal.accentPrimary);
-
-    sendLookAndFeelChange();
+    selected_ = section;
+    details_.clear();
+    detailMode_.setVisible(section == 3 || section == 4);
+    dynamicBand_.setVisible(section == 3 && detailMode_.getSelectedId() == 2);
+    switch (section) {
+    case 0:
+        choice(details_, "low_cut_slope", "LOW CUT SLOPE");
+        choice(details_, "high_cut_slope", "HIGH CUT SLOPE");
+        break;
+    case 1:
+        knob(details_, "tone_tilt", "TILT");
+        knob(details_, "tone_low_hz", "LOW FREQUENCY");
+        knob(details_, "tone_high_hz", "HIGH FREQUENCY");
+        break;
+    case 2:
+        toggle(details_, "stereo_solo_low", "AUDITION LOW");
+        break;
+    case 3:
+        if (detailMode_.getSelectedId() == 2) {
+            const auto prefix = "dyn_" + juce::String(std::max(0, dynamicBand_.getSelectedItemIndex())) + "_";
+            knob(details_, prefix + "freq", "FREQUENCY");
+            knob(details_, prefix + "q", "Q");
+            knob(details_, prefix + "threshold", "THRESHOLD");
+            knob(details_, prefix + "range", "MAX CUT");
+            knob(details_, prefix + "attack", "ATTACK");
+            knob(details_, prefix + "release", "RELEASE");
+            choice(details_, "dyn_solo", "AUDITION");
+        } else {
+            knob(details_, "comp_ratio", "RATIO");
+            knob(details_, "comp_attack", "ATTACK");
+            knob(details_, "comp_release", "RELEASE");
+            knob(details_, "comp_knee", "KNEE");
+            knob(details_, "comp_mix", "MIX");
+            knob(details_, "comp_makeup", "MAKEUP");
+            knob(details_, "comp_sc_hz", "DETECTOR HP");
+        }
+        break;
+    case 4:
+        if (detailMode_.getSelectedId() == 2) {
+            choice(details_, "clip_shape", "SHAPE");
+            knob(details_, "clip_ceiling", "CEILING");
+            knob(details_, "clip_mix", "MIX");
+        } else {
+            choice(details_, "sat_character", "CHARACTER");
+            knob(details_, "sat_mix", "MIX");
+            knob(details_, "sat_output", "OUTPUT");
+            toggle(details_, "sat_auto", "AUTO GAIN");
+        }
+        break;
+    case 5:
+        knob(details_, "limit_release", "RELEASE");
+        knob(details_, "master_gain", "PRE-LIMIT TRIM");
+        break;
+    default:
+        break;
+    }
+    applyTheme();
+    resized();
     repaint();
 }
-
+void AnalogMasterEditor::applyTheme() {
+    const int index = static_cast<int>(processor_.parameters.getRawParameterValue("theme")->load());
+    lookAndFeel_.setTheme(static_cast<analog_master::ui::Theme>(juce::jlimit(0, 4, index)));
+    const auto &p = lookAndFeel_.getPalette();
+    meter_.setThemePalette(p);
+    for (auto *list : {&primary_, &switches_, &details_, &header_})
+        for (auto &c : *list) {
+            c->label.setColour(juce::Label::textColourId, p.labelText);
+            c->widget->lookAndFeelChanged();
+        }
+    for (size_t i = 0; i < sections_.size(); ++i) {
+        auto &button = sections_[i];
+        button.setColour(juce::TextButton::buttonColourId, p.sectionHeaderPlate);
+        button.setColour(juce::TextButton::textColourOffId,
+                         static_cast<int>(i) == selected_ ? p.accentPrimary : p.labelText);
+    }
+    resetButton_.setColour(juce::TextButton::buttonColourId, p.sectionHeaderPlate);
+    resetButton_.setColour(juce::TextButton::textColourOffId, p.labelText);
+    repaint();
+}
 void AnalogMasterEditor::timerCallback() {
-    const auto referenceIndex = static_cast<size_t>(processor_.parameters.getRawParameterValue(analog_master::params::kMeterReference)->load());
-    meter_.setReferenceLevel(analog_master::params::kMeterReferenceDbfs[referenceIndex]);
-    meter_.setLevels(processor_.takeMeterLevels());
+    levels_ = processor_.takeMeterLevels();
+    meter_.setLevels(levels_);
+    const int ref =
+        juce::jlimit(0, 6, static_cast<int>(processor_.parameters.getRawParameterValue("meter_ref")->load()));
+    meter_.setReferenceLevel(analog_master::params::kMeterReferenceDbfs[static_cast<size_t>(ref)]);
+    repaint(836, 270, 264, 382);
 }
-
-juce::Rectangle<float> AnalogMasterEditor::moduleBayBounds(int index) const {
-    const float bayW = (static_cast<float>(getWidth()) - kBayMargin * 2.0f - kBaySpacing * 3.0f) * 0.25f;
-    const float bayH = static_cast<float>(getHeight()) - kBayTop - kBayBottomMargin;
-    return { kBayMargin + static_cast<float>(index) * (bayW + kBaySpacing), kBayTop, bayW, bayH };
+juce::Rectangle<int> AnalogMasterEditor::cardBounds(int i) const {
+    return {20 + (i % 3) * 272, 80 + (i / 3) * 208, 260, 194};
 }
-
-void AnalogMasterEditor::paint(juce::Graphics& g) {
-    const auto bounds = getLocalBounds().toFloat();
-    const auto& pal = lookAndFeel_.getPalette();
-
-    juce::ColourGradient panelGrad(pal.panelGradTop, 0.0f, 0.0f, pal.panelGradBottom, 0.0f, bounds.getHeight(), false);
-    panelGrad.addColour(0.32, pal.panelGradMid1);
-    panelGrad.addColour(0.72, pal.panelGradMid2);
-    g.setGradientFill(panelGrad);
-    g.fillRect(bounds);
-
-    if (backdropImage_.isValid()) {
-        g.setOpacity(0.32f);
-        g.drawImage(backdropImage_, bounds, juce::RectanglePlacement::stretchToFit);
-        g.setOpacity(1.0f);
-    }
-
-    g.setColour(pal.panelStripe);
-    for (int y = 0; y < getHeight(); y += 3) {
-        g.drawHorizontalLine(y, 0.0f, bounds.getWidth());
-    }
-
-    g.setColour(pal.panelBorder);
-    g.drawRect(bounds, 2.0f);
-    g.setColour(pal.panelInnerBorder);
-    g.drawRect(bounds.reduced(3.0f), 1.2f);
-
-    lookAndFeel_.drawRackScrew(g, 18.0f, 18.0f, 7.5f);
-    lookAndFeel_.drawRackScrew(g, bounds.getRight() - 18.0f, 18.0f, 7.5f);
-    lookAndFeel_.drawRackScrew(g, 18.0f, bounds.getBottom() - 18.0f, 7.5f);
-    lookAndFeel_.drawRackScrew(g, bounds.getRight() - 18.0f, bounds.getBottom() - 18.0f, 7.5f);
-
-    const juce::Rectangle<float> logoRect(36.0f, 9.0f, 44.0f, 44.0f);
-    if (logoImage_.isValid()) {
-        juce::Graphics::ScopedSaveState save(g);
-        juce::Path circle;
-        circle.addEllipse(logoRect);
-        g.reduceClipRegion(circle);
-        g.drawImage(logoImage_, logoRect, juce::RectanglePlacement::centred);
-    }
-    g.setColour(pal.accentPrimary.withAlpha(0.8f));
-    g.drawEllipse(logoRect.reduced(0.5f), 1.5f);
-
-    g.setColour(pal.headerBrand);
-    g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
-    g.drawText("ALAN MARCERO", juce::Rectangle<float>(88.0f, 20.0f, 160.0f, 20.0f), juce::Justification::centredLeft);
-
-    const juce::Rectangle<float> titlePlate(bounds.getCentreX() - 210.0f, 8.0f, 420.0f, 44.0f);
-    g.setColour(pal.sectionWellBg);
-    g.fillRoundedRectangle(titlePlate, 6.0f);
-    g.setColour(pal.accentPrimary.withAlpha(0.55f));
-    g.drawRoundedRectangle(titlePlate, 6.0f, 1.3f);
-
-    g.setColour(pal.headerTitle);
-    g.setFont(juce::FontOptions(18.0f, juce::Font::bold));
-    g.drawText("openMaster", titlePlate.withHeight(26.0f).translated(0.0f, 2.0f), juce::Justification::centred);
-    g.setColour(pal.accentPrimary);
-    g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
-    g.drawText("LOW CUT  /  LOW-END STEREO  /  HIGH CUT", titlePlate.withTrimmedTop(27.0f).withHeight(13.0f), juce::Justification::centred);
-
-    g.setColour(pal.headerDivider);
-    g.drawLine(32.0f, 60.0f, bounds.getRight() - 32.0f, 60.0f, 1.2f);
-
-    const bool powerOn = masterPowerButton_.getToggleState();
-    const bool bayActive[4] = {
-        powerOn && lowCutBypassButton_.getToggleState(),
-        powerOn && stereoBypassButton_.getToggleState(),
-        powerOn && highCutBypassButton_.getToggleState(),
-        powerOn
-    };
-    for (int i = 0; i < 4; ++i) {
-        paintModuleBay(g, i, moduleBayBounds(i), bayActive[i]);
-    }
+void AnalogMasterEditor::place(Control &c, juce::Rectangle<int> area) {
+    if (dynamic_cast<juce::Slider *>(c.widget.get())) {
+        c.label.setBounds(area.removeFromTop(16));
+        c.widget->setBounds(area);
+    } else if (dynamic_cast<juce::ComboBox *>(c.widget.get())) {
+        c.label.setBounds(area.getX(), area.getCentreY() - 28, area.getWidth(), 18);
+        c.widget->setBounds(area.getX(), area.getCentreY() - 6, area.getWidth(), 28);
+    } else
+        c.widget->setBounds(area.getX(), area.getCentreY() - 16, area.getWidth(), 32);
 }
-
-void AnalogMasterEditor::paintModuleBay(juce::Graphics& g, int index, juce::Rectangle<float> bay, bool active) const {
-    const auto& pal = lookAndFeel_.getPalette();
-    const juce::Colour accent = index == 3 ? pal.accentSecondary : pal.accentPrimary;
-
-    const char* tags[4] = { "01  /  HIGH-PASS", "02  /  MID-SIDE BELOW CROSSOVER", "03  /  LOW-PASS", "04  /  TRIM & METERS" };
-    const char* titles[4] = { "LOW CUT", "LOW-END STEREO", "HIGH CUT", "MASTER OUTPUT" };
-
-    g.setColour(pal.sectionWellBg);
-    g.fillRoundedRectangle(bay, 7.0f);
-
-    g.setColour(pal.hudGrid.withAlpha(0.08f));
-    for (float x = bay.getX() + 20.0f; x < bay.getRight() - 10.0f; x += 20.0f) {
-        g.drawVerticalLine(static_cast<int>(x), bay.getY() + 44.0f, bay.getBottom() - 8.0f);
-    }
-    for (float y = bay.getY() + 60.0f; y < bay.getBottom() - 10.0f; y += 20.0f) {
-        g.drawHorizontalLine(static_cast<int>(y), bay.getX() + 6.0f, bay.getRight() - 6.0f);
-    }
-
-    if (active) {
-        g.setColour(accent.withAlpha(0.18f));
-        g.drawRoundedRectangle(bay.expanded(1.5f), 8.0f, 2.5f);
-    }
-    g.setColour(active ? accent.withAlpha(0.85f) : pal.sectionBorder);
-    g.drawRoundedRectangle(bay, 7.0f, active ? 1.5f : 1.0f);
-
-    const auto headerPlate = bay.reduced(8.0f).withHeight(34.0f);
-    g.setColour(pal.sectionHeaderPlate);
-    g.fillRoundedRectangle(headerPlate, 4.5f);
-
-    g.setColour(pal.headerSub);
-    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-    g.drawText(tags[index], headerPlate.withHeight(14.0f).translated(0.0f, 2.0f), juce::Justification::centred);
-    g.setColour(active ? accent : pal.headerSub);
-    g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
-    g.drawText(titles[index], headerPlate.withTrimmedTop(14.0f).withHeight(18.0f), juce::Justification::centred);
-
-    g.setColour(active ? accent : pal.sectionBorder);
-    g.fillRoundedRectangle(bay.getX() + 16.0f, headerPlate.getBottom() + 3.0f, bay.getWidth() - 32.0f, 2.0f, 1.0f);
-
-    if (index < 3) {
-        const juce::Rectangle<float> display(bay.getX() + 14.0f, bay.getY() + 52.0f, bay.getWidth() - 28.0f, 52.0f);
-        g.setColour(pal.meterFaceBottom);
-        g.fillRoundedRectangle(display, 4.5f);
-        g.setColour(active ? accent.withAlpha(0.45f) : pal.sectionBorder);
-        g.drawRoundedRectangle(display, 4.5f, 1.0f);
-
-        if (index == 1) {
-            paintStereoDisplay(g, display, active);
-        } else {
-            paintFilterDisplay(g, display, index == 0, active);
-        }
-    }
-
-    if (active) {
-        g.setColour(accent);
-        g.fillRoundedRectangle(bay.getCentreX() - 36.0f, bay.getBottom() - 3.0f, 72.0f, 3.0f, 1.5f);
-    }
-}
-
-void AnalogMasterEditor::paintFilterDisplay(juce::Graphics& g, juce::Rectangle<float> area, bool isHighPass, bool active) const {
-    const auto& pal = lookAndFeel_.getPalette();
-    const juce::Colour trace = active ? pal.accentPrimary : pal.headerSub.withAlpha(0.45f);
-
-    auto inner = area.reduced(6.0f, 4.0f);
-    const auto readout = inner.removeFromBottom(11.0f);
-    const auto plot = inner.withTrimmedBottom(2.0f);
-
-    const double sampleRate = processor_.getSampleRate() > 0.0 ? processor_.getSampleRate() : 48000.0;
-    const double cutoff = (isHighPass ? lowCutFreqSlider_ : highCutFreqSlider_).getValue();
-    const int slopeIndex = std::max(0, (isHighPass ? lowCutSlopeBox_ : highCutSlopeBox_).getSelectedItemIndex());
-    const auto slope = static_cast<analog_master::core::FilterSlope>(slopeIndex);
-    const int order = analog_master::core::slopeToOrder(slope);
-    const auto design = isHighPass
-        ? analog_master::core::designButterworthHighPass(sampleRate, cutoff, order)
-        : analog_master::core::designButterworthLowPass(sampleRate, cutoff, order);
-
-    const double minF = isHighPass ? 10.0 : 1000.0;
-    const double maxF = isHighPass ? 1000.0 : std::min(30000.0, sampleRate * 0.499);
-    const double logSpan = std::log(maxF / minF);
-    constexpr double kFloorDb = -48.0;
-
-    auto xFor = [&](double f) { return plot.getX() + static_cast<float>(std::log(f / minF) / logSpan) * plot.getWidth(); };
-    auto yFor = [&](double db) { return plot.getY() + static_cast<float>(std::clamp(db, kFloorDb, 0.0) / kFloorDb) * plot.getHeight(); };
-
-    g.setColour(pal.hudGrid.withAlpha(0.25f));
-    for (const double f : { 20.0, 50.0, 100.0, 200.0, 500.0, 2000.0, 5000.0, 10000.0, 20000.0 }) {
-        if (f > minF && f < maxF) {
-            g.drawVerticalLine(static_cast<int>(xFor(f)), plot.getY(), plot.getBottom());
-        }
-    }
-    g.drawHorizontalLine(static_cast<int>(yFor(-24.0)), plot.getX(), plot.getRight());
-
-    juce::Path curve;
-    constexpr int kSteps = 80;
-    for (int s = 0; s <= kSteps; ++s) {
-        const double f = minF * std::exp(logSpan * static_cast<double>(s) / kSteps);
-        const juce::Point<float> p(xFor(f), yFor(filterResponseDb(design, f, sampleRate)));
-        if (s == 0) {
-            curve.startNewSubPath(p);
-        } else {
-            curve.lineTo(p);
-        }
-    }
-    juce::Path fill(curve);
-    fill.lineTo(plot.getRight(), plot.getBottom());
-    fill.lineTo(plot.getX(), plot.getBottom());
-    fill.closeSubPath();
-
-    g.setColour(trace.withAlpha(active ? 0.18f : 0.06f));
-    g.fillPath(fill);
-    g.setColour(trace);
-    g.strokePath(curve, juce::PathStrokeType(1.6f));
-
-    g.setColour(pal.headerTitle);
-    g.fillEllipse(juce::Rectangle<float>(5.0f, 5.0f).withCentre({ xFor(std::clamp(cutoff, minF, maxF)), yFor(-3.0) }));
-
-    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-    g.setColour(pal.headerTitle.withAlpha(0.85f));
-    const char* freqParamId = isHighPass ? analog_master::params::kLowCutFreq : analog_master::params::kHighCutFreq;
-    g.drawText(processor_.parameters.getParameter(freqParamId)->getCurrentValueAsText(), readout, juce::Justification::centredLeft);
-    g.drawText(juce::String(analog_master::core::slopeToString(slope)), readout, juce::Justification::centredRight);
-}
-
-void AnalogMasterEditor::paintStereoDisplay(juce::Graphics& g, juce::Rectangle<float> area, bool active) const {
-    const auto& pal = lookAndFeel_.getPalette();
-    const juce::Colour trace = active ? pal.accentPrimary : pal.headerSub.withAlpha(0.45f);
-
-    auto inner = area.reduced(6.0f, 4.0f);
-    const auto readout = inner.removeFromBottom(11.0f);
-    const auto plot = inner.withTrimmedBottom(2.0f);
-
-    const float widthPct = static_cast<float>(stereoWidthSlider_.getValue());
-    const bool soloLow = stereoSoloButton_.getToggleState();
-    const float apexY = plot.getBottom();
-    const float topY = plot.getY();
-
-    // The dashed lines mark 100% width
-    const float fullSpread = plot.getWidth() * 0.46f;
-    const float spread = std::max(1.0f, fullSpread * widthPct / 200.0f);
-    const float unityX = fullSpread * 0.5f;
-
-    juce::Path cone;
-    cone.startNewSubPath(plot.getCentreX(), apexY);
-    cone.lineTo(plot.getCentreX() - spread, topY);
-    cone.lineTo(plot.getCentreX() + spread, topY);
-    cone.closeSubPath();
-    g.setColour(trace.withAlpha(active ? 0.22f : 0.08f));
-    g.fillPath(cone);
-    g.setColour(trace);
-    g.strokePath(cone, juce::PathStrokeType(1.4f));
-
-    const float dashes[] = { 3.0f, 3.0f };
-    g.setColour(pal.headerTitle.withAlpha(0.45f));
-    for (const float side : { -1.0f, 1.0f }) {
-        g.drawDashedLine(juce::Line<float>(plot.getCentreX(), apexY, plot.getCentreX() + side * unityX, topY), dashes, 2, 1.0f);
-    }
-    g.setColour(pal.headerTitle.withAlpha(0.35f));
-    g.drawVerticalLine(static_cast<int>(plot.getCentreX()), topY, apexY);
-
-    juce::String mode = "WIDE";
-    if (widthPct < 0.5f) {
-        mode = "MONO";
-    } else if (widthPct < 99.5f) {
-        mode = "NARROW";
-    } else if (widthPct < 100.5f) {
-        mode = "UNCHANGED";
-    }
-
-    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-    g.setColour(pal.headerTitle.withAlpha(0.85f));
-    const auto crossoverText = processor_.parameters.getParameter(analog_master::params::kStereoFreq)->getCurrentValueAsText();
-    g.drawText("BELOW " + crossoverText, readout, juce::Justification::centredLeft);
-    g.setColour(soloLow ? pal.accentSecondary : pal.headerTitle.withAlpha(0.85f));
-    g.drawText(soloLow ? "LOWS ONLY" : mode, readout, juce::Justification::centredRight);
-}
-
 void AnalogMasterEditor::resized() {
-    const float width = static_cast<float>(getWidth());
-
-    themeLabel_.setBounds(static_cast<int>(width - 224.0f), 17, 50, 26);
-    themeBox_.setBounds(static_cast<int>(width - 170.0f), 17, 136, 26);
-
-    // 1. Low Cut
-    {
-        auto r = moduleBayBounds(0).reduced(14.0f);
-        r.removeFromTop(98.0f);
-        lowCutFreqLabel_.setBounds(r.removeFromTop(18.0f).toNearestInt());
-        lowCutFreqSlider_.setBounds(r.removeFromTop(165.0f).toNearestInt());
-        r.removeFromTop(12.0f);
-        lowCutSlopeLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
-        lowCutSlopeBox_.setBounds(r.removeFromTop(28.0f).reduced(12.0f, 0.0f).toNearestInt());
-        r.removeFromTop(18.0f);
-        lowCutBypassButton_.setBounds(r.removeFromTop(36.0f).reduced(28.0f, 0.0f).toNearestInt());
+    for (int i = 0; i < 6; ++i) {
+        const auto card = cardBounds(i);
+        sections_[static_cast<size_t>(i)].setBounds(card.reduced(8).removeFromTop(24));
+        for (int k = 0; k < 2; ++k)
+            place(*primary_[static_cast<size_t>(2 * i + k)],
+                  {card.getX() + 10 + k * 122, card.getY() + 39, 118, 116});
+        int n = 0;
+        for (auto &c : switches_)
+            if (c->section == i) {
+                c->widget->setBounds(card.getX() + 12 + n * 122, card.getBottom() - 33, 114, 27);
+                ++n;
+            }
     }
-
-    // 2. Low-End Stereo Field
-    {
-        auto r = moduleBayBounds(1).reduced(14.0f);
-        r.removeFromTop(96.0f);
-        stereoWidthLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
-        stereoWidthSlider_.setBounds(r.removeFromTop(116.0f).toNearestInt());
-        r.removeFromTop(4.0f);
-        stereoFreqLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
-        stereoFreqSlider_.setBounds(r.removeFromTop(116.0f).toNearestInt());
-        r.removeFromTop(8.0f);
-        auto toggles = r.removeFromTop(36.0f);
-        stereoBypassButton_.setBounds(toggles.removeFromLeft(toggles.getWidth() * 0.5f).reduced(3.0f, 0.0f).toNearestInt());
-        stereoSoloButton_.setBounds(toggles.reduced(3.0f, 0.0f).toNearestInt());
+    header_[0]->widget->setBounds(702, 22, 120, 30);
+    header_[1]->widget->setBounds(948, 22, 152, 30);
+    header_[2]->widget->setBounds(850, 247, 236, 26);
+    header_[3]->widget->setBounds(850, 624, 236, 32);
+    meter_.setBounds(850, 94, 236, 148);
+    resetButton_.setBounds(850, 662, 236, 26);
+    detailMode_.setBounds(380, 507, 180, 26);
+    dynamicBand_.setBounds(576, 507, 228, 26);
+    const int count = static_cast<int>(details_.size());
+    const int width = count > 0 ? std::min(190, 776 / count) : 1;
+    for (int i = 0; i < count; ++i)
+        place(*details_[static_cast<size_t>(i)], {32 + i * width, 548, width - 8, 122});
+}
+void AnalogMasterEditor::paint(juce::Graphics &g) {
+    const auto &p = lookAndFeel_.getPalette();
+    g.fillAll(p.panelGradBottom);
+    if (backdrop_.isValid()) {
+        g.setOpacity(.68f);
+        g.drawImage(backdrop_, getLocalBounds().toFloat());
+        g.setOpacity(1);
     }
-
-    // 3. High Cut
-    {
-        auto r = moduleBayBounds(2).reduced(14.0f);
-        r.removeFromTop(98.0f);
-        highCutFreqLabel_.setBounds(r.removeFromTop(18.0f).toNearestInt());
-        highCutFreqSlider_.setBounds(r.removeFromTop(165.0f).toNearestInt());
-        r.removeFromTop(12.0f);
-        highCutSlopeLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
-        highCutSlopeBox_.setBounds(r.removeFromTop(28.0f).reduced(12.0f, 0.0f).toNearestInt());
-        r.removeFromTop(18.0f);
-        highCutBypassButton_.setBounds(r.removeFromTop(36.0f).reduced(28.0f, 0.0f).toNearestInt());
+    g.setColour(juce::Colours::black.withAlpha(.3f));
+    g.fillRect(getLocalBounds());
+    if (logo_.isValid())
+        g.drawImageWithin(logo_, 20, 17, 38, 38, juce::RectanglePlacement::centred);
+    g.setColour(p.headerTitle);
+    g.setFont(juce::FontOptions(27.f, juce::Font::bold));
+    g.drawText("openMaster", 70, 12, 245, 34, juce::Justification::centredLeft);
+    g.setColour(p.accentPrimary);
+    g.setFont(juce::FontOptions(10.f, juce::Font::bold));
+    g.drawText("STUDIO 84  /  MASTERING PROCESSOR", 72, 45, 300, 17, juce::Justification::centredLeft);
+    g.setColour(p.headerSub);
+    g.drawText("FACEPLATE", 847, 25, 90, 23, juce::Justification::centredRight);
+    for (int i = 0; i < 6; ++i) {
+        const auto card = cardBounds(i).toFloat();
+        g.setColour(p.sectionWellBg.withAlpha(.97f));
+        g.fillRoundedRectangle(card, 4);
+        g.setColour(i == selected_ ? p.accentPrimary.withAlpha(.65f) : p.sectionBorder);
+        g.drawRoundedRectangle(card, 4, 1);
     }
-
-    // 4. Master Output
-    {
-        auto r = moduleBayBounds(3).reduced(14.0f);
-        r.removeFromTop(44.0f);
-        meter_.setBounds(r.removeFromTop(148.0f).reduced(2.0f, 0.0f).toNearestInt());
-        r.removeFromTop(6.0f);
-        meterReferenceBox_.setBounds(r.removeFromTop(24.0f).reduced(12.0f, 0.0f).toNearestInt());
-        r.removeFromTop(8.0f);
-        masterGainLabel_.setBounds(r.removeFromTop(16.0f).toNearestInt());
-        masterGainSlider_.setBounds(r.removeFromTop(113.0f).toNearestInt());
-        r.removeFromTop(12.0f);
-        masterPowerButton_.setBounds(r.removeFromTop(36.0f).reduced(20.0f, 0.0f).toNearestInt());
+    g.setColour(p.sectionWellBg);
+    g.fillRoundedRectangle({20.f, 498.f, 804.f, 198.f}, 4);
+    g.fillRoundedRectangle({836.f, 80.f, 264.f, 616.f}, 4);
+    g.setColour(p.sectionBorder);
+    g.drawRoundedRectangle({20.f, 498.f, 804.f, 198.f}, 4, 1);
+    g.drawRoundedRectangle({836.f, 80.f, 264.f, 616.f}, 4, 1);
+    g.setColour(p.accentPrimary);
+    g.setFont(juce::FontOptions(12.f, juce::Font::bold));
+    g.drawText(juce::String(sectionNames[selected_]).substring(4) + " / DETAIL", 34, 507, 325, 24,
+               juce::Justification::centredLeft);
+    g.setColour(p.headerSub);
+    g.setFont(juce::FontOptions(10.f));
+    juce::String hint = sectionDescriptions[selected_];
+    if (selected_ == 0)
+        hint = "Choose each filter's slope. LOW and HIGH switches engage them independently.";
+    if (selected_ == 2)
+        hint = "Width affects the low band only. Audition the crossover with AUDITION LOW.";
+    if (selected_ == 4)
+        hint = "8x oversampling  /  Drive into the curve; use MIX to blend.";
+    if (selected_ == 5)
+        hint = "5 ms lookahead  /  Trim precedes clipping and limiting.";
+    g.drawText(hint, 34, 674, 774, 14, juce::Justification::centredLeft);
+    const auto readout = [&](int y, const char *label, float value, const char *units, juce::Colour colour) {
+        g.setColour(juce::Colour(0xff080e0b));
+        g.fillRoundedRectangle({850.f, static_cast<float>(y), 236.f, 62.f}, 3);
+        g.setColour(p.labelText);
+        g.setFont(juce::FontOptions(10.f, juce::Font::bold));
+        g.drawText(label, 860, y + 5, 164, 15, juce::Justification::centredLeft);
+        g.drawText(units, 1037, y + 35, 39, 16, juce::Justification::centredRight);
+        analog_master::ui::drawLedNumber(g, {860.f, static_cast<float>(y + 26), 167.f, 28.f},
+                                         std::isfinite(value) ? juce::String(value, 1) : "---", colour);
+    };
+    readout(285, "INTEGRATED", levels_.integratedLufs, "LUFS", p.accentPrimary);
+    readout(355, "SHORT TERM", levels_.shortTermLufs, "LUFS", p.accentPrimary);
+    readout(425, "TRUE PEAK / MAX", levels_.truePeakDbtp, "dBTP", p.accentSecondary);
+    const float gr[]{levels_.compressorGr, levels_.dynamicEqGr, levels_.clipperGr, levels_.limiterGr};
+    const char *names[]{"COMP", "DYN EQ", "CLIP", "LIMIT"};
+    for (int i = 0; i < 4; ++i) {
+        const int y = 505 + i * 23;
+        g.setColour(p.labelText);
+        g.setFont(juce::FontOptions(9.f, juce::Font::bold));
+        g.drawText(names[i], 851, y, 48, 16, juce::Justification::centredLeft);
+        for (int j = 0; j < 18; ++j) {
+            g.setColour(gr[i] > static_cast<float>(j) * .5f ? p.accentSecondary
+                                                            : p.accentSecondary.withAlpha(.10f));
+            g.fillRect(902 + j * 7, y + 3, 5, 9);
+        }
+        g.setColour(p.accentSecondary);
+        g.drawText(juce::String(gr[i], 1), 1033, y, 52, 16, juce::Justification::centredRight);
     }
+    g.setColour(p.headerSub);
+    g.setFont(juce::FontOptions(9.f));
+    const bool match = processor_.parameters.getRawParameterValue("match_bypass")->load() > .5f;
+    const juce::String status = !match               ? "GAIN REDUCTION / dB"
+                                : levels_.matchReady ? "MATCH " + juce::String(levels_.matchDb, 1) + " dB"
+                                                     : "MATCH / LISTENING...";
+    g.drawText(status, 850, 601, 236, 16, juce::Justification::centred);
 }

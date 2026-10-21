@@ -7,9 +7,10 @@ namespace analog_master::ui {
 namespace {
 
 constexpr float kFloorDb = -60.0f;
-constexpr float kScaleMinDb = -20.0f;
-constexpr float kScaleMaxDb = 3.0f;
-constexpr float kArcHalfAngle = 0.55f; // radians either side of vertical
+constexpr float kScaleMinDb = -24.0f;
+constexpr float kScaleMaxDb = 6.0f;
+constexpr int kSegments = 30;
+const juce::Colour kGreen {0xff90ee63}, kAmber {0xffffbd4a}, kRed {0xffff5544};
 constexpr int kPeakHoldFrames = 30;     // 1 s at 30 Hz
 constexpr float kPeakFallDbPerFrame = 0.7f;
 
@@ -17,21 +18,10 @@ float toDb(float linear) {
     return linear > 1e-6f ? std::max(kFloorDb, 20.0f * std::log10(linear)) : kFloorDb;
 }
 
-float dbToAngle(float db) {
-    const float norm = std::clamp((db - kScaleMinDb) / (kScaleMaxDb - kScaleMinDb), 0.0f, 1.0f);
-    return -kArcHalfAngle + norm * 2.0f * kArcHalfAngle;
+float meterPosition(float db) {
+    return std::clamp((db - kScaleMinDb) / (kScaleMaxDb - kScaleMinDb), 0.0f, 1.0f);
 }
 
-juce::Point<float> polar(juce::Point<float> pivot, float radius, float angle) {
-    return { pivot.x + radius * std::sin(angle), pivot.y - radius * std::cos(angle) };
-}
-
-juce::String formatDb(float db) {
-    if (db <= -59.5f) {
-        return "-inf";
-    }
-    return (db > 0.05f ? "+" : "") + juce::String(db, 1);
-}
 
 } // namespace
 
@@ -73,83 +63,42 @@ void VintageMeter::setThemePalette(const ThemePalette& palette) {
 }
 
 void VintageMeter::paintChannel(juce::Graphics& g, juce::Rectangle<float> area, const ChannelState& state, const juce::String& name) const {
-    g.setColour(palette_.meterFrameBg);
-    g.fillRoundedRectangle(area, 5.0f);
-    g.setColour(palette_.meterFrameBorder);
-    g.drawRoundedRectangle(area, 5.0f, 1.2f);
+    g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+    g.setColour(palette_.meterScaleText);
+    g.drawText(name, area.withWidth(12.0f).withHeight(14.0f), juce::Justification::centredLeft);
 
-    auto face = area.reduced(3.0f);
-    juce::ColourGradient faceGrad(palette_.meterFaceTop, face.getCentreX(), face.getY(),
-                                  palette_.meterFaceBottom, face.getCentreX(), face.getBottom(), false);
-    faceGrad.addColour(0.65, palette_.meterFaceMid);
-    g.setGradientFill(faceGrad);
-    g.fillRoundedRectangle(face, 3.5f);
-
-    juce::Graphics::ScopedSaveState clipState(g);
-    g.reduceClipRegion(face.toNearestInt());
-
-    g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
-    g.setColour(palette_.accentPrimary);
-    g.drawText(name, face.withHeight(14.0f).withTrimmedLeft(5.0f), juce::Justification::centredLeft);
-
-    const juce::Rectangle<float> led(face.getRight() - 11.0f, face.getY() + 4.0f, 6.0f, 6.0f);
-    g.setColour(palette_.meterScaleText.withAlpha(0.8f));
-    g.setFont(juce::FontOptions(6.5f, juce::Font::bold));
-    g.drawText("CLIP", juce::Rectangle<float>(led.getX() - 25.0f, led.getY() - 2.0f, 22.0f, 10.0f), juce::Justification::centredRight);
-    g.setColour(state.clipGlow > 0.0f ? palette_.meterRedZone.withAlpha(0.35f + 0.65f * state.clipGlow) : palette_.jewelBezelBg);
-    g.fillEllipse(led);
-    g.setColour(palette_.jewelBezelBorder);
-    g.drawEllipse(led, 0.8f);
-
-    const float readoutH = 12.0f;
-    const juce::Point<float> pivot(face.getCentreX(), face.getBottom() - readoutH - 4.0f);
-    const float maxRadiusByWidth = (face.getWidth() * 0.5f - 6.0f) / std::sin(kArcHalfAngle);
-    const float maxRadiusByHeight = pivot.y - (face.getY() + 28.0f);
-    const float radius = std::min(maxRadiusByWidth, maxRadiusByHeight);
-
-    juce::Path scaleArc;
-    scaleArc.addCentredArc(pivot.x, pivot.y, radius, radius, 0.0f, dbToAngle(kScaleMinDb), dbToAngle(0.0f), true);
-    g.setColour(palette_.meterScaleText.withAlpha(0.7f));
-    g.strokePath(scaleArc, juce::PathStrokeType(1.0f));
-
-    juce::Path redArc;
-    redArc.addCentredArc(pivot.x, pivot.y, radius, radius, 0.0f, dbToAngle(0.0f), dbToAngle(kScaleMaxDb), true);
-    g.setColour(palette_.meterRedZone);
-    g.strokePath(redArc, juce::PathStrokeType(2.5f));
-
-    const struct { float db; const char* label; } ticks[] = {
-        { -20.0f, "-20" }, { -10.0f, "-10" }, { -5.0f, "-5" }, { 0.0f, "0" }, { 3.0f, "" }
-    };
-    g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
-    for (const auto& t : ticks) {
-        const float a = dbToAngle(t.db);
-        g.setColour(t.db >= 0.0f ? palette_.meterRedZone : palette_.meterScaleText);
-        g.drawLine(juce::Line<float>(polar(pivot, radius - 4.0f, a), polar(pivot, radius + 3.0f, a)), 1.2f);
-        // Outside the arc, so the needle at rest does not cover the -20 label
-        const auto labelArea = juce::Rectangle<float>(18.0f, 9.0f).withCentre(polar(pivot, radius + 11.0f, a)).constrainedWithin(face);
-        g.drawText(t.label, labelArea, juce::Justification::centred);
+    const juce::Rectangle<float> track(area.getX() + 17.0f, area.getY() + 1.0f, area.getWidth() - 37.0f, 12.0f);
+    const float pitch = track.getWidth() / kSegments;
+    const float vu = state.vuDb - referenceDbfs_;
+    const int peakSegment = std::clamp(static_cast<int>(std::ceil(meterPosition(state.peakHoldDb - referenceDbfs_) * kSegments)) - 1, 0, kSegments - 1);
+    for (int segment = 0; segment < kSegments; ++segment) {
+        const float threshold = kScaleMinDb + static_cast<float>(segment + 1);
+        const auto colour = threshold > 0 ? kRed : threshold > -6 ? kAmber : kGreen;
+        const bool lit = state.vuDb > kFloorDb && vu >= threshold;
+        const juce::Rectangle<float> led(track.getX() + static_cast<float>(segment) * pitch, track.getY(), pitch - 1.5f, track.getHeight());
+        if (lit) {
+            g.setColour(colour.withAlpha(0.12f));
+            g.fillRoundedRectangle(led.expanded(1.0f), 1.5f);
+        }
+        g.setColour(colour.withAlpha(lit ? 0.95f : 0.09f));
+        g.fillRoundedRectangle(led, 0.6f);
+        if (state.peakHoldDb > kFloorDb && state.peakHoldDb - referenceDbfs_ >= kScaleMinDb && segment == peakSegment) {
+            g.setColour(colour.brighter(0.5f));
+            g.drawRoundedRectangle(led, 0.6f, 0.8f);
+        }
     }
 
-    const float vu = state.vuDb - referenceDbfs_;
-    const auto tip = polar(pivot, radius + 4.0f, dbToAngle(vu));
-    const bool needleHot = vu >= 0.0f;
-    g.setColour(needleHot ? palette_.meterRedZone.withAlpha(0.45f) : palette_.meterNeedleGlow);
-    g.drawLine(juce::Line<float>(pivot, tip), 3.5f);
-    g.setColour(needleHot ? palette_.meterRedZone : palette_.meterNeedle);
-    g.drawLine(juce::Line<float>(pivot, tip), 1.5f);
+    const juce::Rectangle<float> clip(area.getRight() - 12.0f, track.getY(), 12.0f, track.getHeight());
+    g.setColour(kRed.withAlpha(state.clipGlow > 0.0f ? 0.3f + 0.7f * state.clipGlow : 0.09f));
+    g.fillRoundedRectangle(clip, 1.0f);
 
-    const auto cap = juce::Rectangle<float>(9.0f, 9.0f).withCentre(pivot);
-    g.setColour(palette_.meterFrameBg);
-    g.fillEllipse(cap);
-    g.setColour(palette_.accentPrimary.withAlpha(0.6f));
-    g.drawEllipse(cap, 1.0f);
-
-    const auto readout = face.removeFromBottom(readoutH).reduced(5.0f, 0.0f);
-    g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
+    const auto readout = area.withTrimmedTop(20.0f).withHeight(16.0f).withTrimmedLeft(17.0f);
+    g.setFont(juce::FontOptions(7.0f, juce::Font::bold));
     g.setColour(palette_.meterScaleText);
-    g.drawText("VU " + (state.vuDb <= kFloorDb ? juce::String("-inf") : formatDb(vu)), readout, juce::Justification::centredLeft);
-    g.setColour(state.peakHoldDb >= 0.0f ? palette_.meterRedZone : palette_.headerTitle.withAlpha(0.85f));
-    g.drawText("PK " + formatDb(state.peakHoldDb), readout, juce::Justification::centredRight);
+    g.drawText("PEAK dBFS", readout.withWidth(55.0f), juce::Justification::centredLeft);
+    const auto peakText = state.peakHoldDb <= -59.5f ? juce::String("----")
+        : (state.peakHoldDb > 0.05f ? "+" : "") + juce::String(state.peakHoldDb, 1);
+    drawLedNumber(g, readout.withTrimmedRight(1.0f), peakText, state.peakHoldDb >= 0.0f ? kRed : kGreen);
 }
 
 void VintageMeter::paintCorrelation(juce::Graphics& g, juce::Rectangle<float> area) const {
@@ -169,27 +118,47 @@ void VintageMeter::paintCorrelation(juce::Graphics& g, juce::Rectangle<float> ar
     g.setColour(palette_.meterFaceBottom);
     g.fillRoundedRectangle(track, 2.0f);
 
-    const float midX = track.getCentreX();
-    const float corrX = midX + correlation_ * track.getWidth() * 0.5f;
-    g.setColour((correlation_ < 0.0f ? palette_.meterRedZone : palette_.accentPrimary).withAlpha(0.55f));
-    g.fillRect(juce::Rectangle<float>(std::min(midX, corrX), track.getY() + 1.0f,
-                                      std::max(1.0f, std::abs(corrX - midX)), track.getHeight() - 2.0f));
-
-    g.setColour(palette_.meterScaleText.withAlpha(0.6f));
-    g.drawVerticalLine(static_cast<int>(midX), track.getY(), track.getBottom());
-    g.setColour(palette_.headerTitle);
-    g.fillRoundedRectangle(corrX - 1.5f, track.getY() - 1.0f, 3.0f, track.getHeight() + 2.0f, 1.0f);
+    constexpr int segments = 21;
+    const float pitch = track.getWidth() / segments;
+    const int position = juce::roundToInt((correlation_ + 1.0f) * 10.0f);
+    for (int segment = 0; segment < segments; ++segment) {
+        const bool lit = segment >= std::min(10, position) && segment <= std::max(10, position);
+        const auto colour = segment < 10 ? kRed : segment == 10 ? kAmber : kGreen;
+        g.setColour(colour.withAlpha(lit ? 0.85f : 0.09f));
+        g.fillRect(track.getX() + static_cast<float>(segment) * pitch, track.getY(), pitch - 1.5f, track.getHeight());
+    }
 }
 
 void VintageMeter::paint(juce::Graphics& g) {
-    auto b = getLocalBounds().toFloat();
-    const auto corrArea = b.removeFromBottom(16.0f);
-    b.removeFromBottom(4.0f);
-    const float meterWidth = (b.getWidth() - 6.0f) * 0.5f;
+    auto bounds = getLocalBounds().toFloat();
+    const auto correlation = bounds.removeFromBottom(16.0f);
+    bounds.removeFromBottom(4.0f);
+    g.setColour(palette_.meterFrameBg);
+    g.fillRoundedRectangle(bounds, 4.0f);
+    g.setColour(palette_.meterFrameBorder);
+    g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, 1.0f);
+    const auto face = bounds.reduced(3.0f);
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff16211c), face.getTopLeft(), juce::Colour(0xff070c09), face.getBottomLeft(), false));
+    g.fillRoundedRectangle(face, 2.0f);
 
-    paintChannel(g, b.removeFromLeft(meterWidth), left_, "L");
-    paintChannel(g, b.removeFromRight(meterWidth), right_, "R");
-    paintCorrelation(g, corrArea);
+    auto inner = bounds.reduced(8.0f, 6.0f);
+    const auto scale = inner.removeFromTop(17.0f);
+    const auto track = scale.withTrimmedLeft(17.0f).withTrimmedRight(20.0f);
+    g.setFont(juce::FontOptions(6.5f, juce::Font::bold));
+    g.setColour(palette_.meterScaleText);
+    g.drawText("VU", scale.withWidth(13.0f), juce::Justification::centredLeft);
+    for (const int db : {-24, -18, -12, -6, 0, 6}) {
+        const float x = track.getX() + meterPosition(static_cast<float>(db)) * track.getWidth();
+        g.setColour(db > 0 ? kRed : db == 0 ? kAmber : palette_.meterScaleText);
+        g.drawText(db > 0 ? "+6" : juce::String(db), juce::Rectangle<float>(x - 10, scale.getY(), 20, 11), juce::Justification::centred);
+    }
+    g.setColour(kRed.withAlpha(0.75f));
+    g.setFont(juce::FontOptions(5.5f, juce::Font::bold));
+    g.drawText("CLIP", scale.withWidth(16.0f).withRightX(scale.getRight() + 2.0f).withHeight(11.0f), juce::Justification::centred);
+    const float rowHeight = inner.getHeight() * 0.5f;
+    paintChannel(g, inner.removeFromTop(rowHeight), left_, "L");
+    paintChannel(g, inner, right_, "R");
+    paintCorrelation(g, correlation);
 }
 
 } // namespace analog_master::ui

@@ -4,16 +4,18 @@
 
 namespace analog_master::ui {
 
+void drawLedNumber(juce::Graphics& g, juce::Rectangle<float> area, const juce::String& value, juce::Colour colour);
+
 enum class Theme : int {
-    CyberNeon = 0,
-    ChromeDeck = 1,
-    AcidBioGrid = 2,
-    DeepNetIce = 3,
-    SolarOverdrive = 4
+    Studio84 = 0,
+    Silver = 1,
+    Phosphor = 2,
+    Ice = 3,
+    Amber = 4
 };
 
 struct ThemePalette {
-    // Faceplate panel gradients & cyber HUD grid
+    // Rack faceplate
     juce::Colour panelGradTop;
     juce::Colour panelGradMid1;
     juce::Colour panelGradMid2;
@@ -22,7 +24,7 @@ struct ThemePalette {
     juce::Colour panelBorder;
     juce::Colour panelInnerBorder;
 
-    // Cyber Neon Accents
+    // Display and status illumination
     juce::Colour accentPrimary;
     juce::Colour accentSecondary;
     juce::Colour hudGrid;
@@ -39,7 +41,7 @@ struct ThemePalette {
     juce::Colour headerSub;
     juce::Colour headerDivider;
 
-    // Sections / Cyber Cards
+    // Module panels
     juce::Colour sectionWellBg;
     juce::Colour sectionBorder;
     juce::Colour sectionHeaderPlate;
@@ -89,7 +91,7 @@ struct ThemePalette {
     juce::Colour popupHighlightBg;
     juce::Colour popupHighlightText;
 
-    // Holographic Cyber VU Meter
+    // LED meter display
     juce::Colour meterFrameBg;
     juce::Colour meterFrameBorder;
     juce::Colour meterFaceTop;
@@ -134,6 +136,9 @@ public:
     ) override;
 
     void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override;
+    juce::Label* createSliderTextBox(juce::Slider& slider) override;
+    void drawLabel(juce::Graphics& g, juce::Label& label) override;
+    juce::Font getComboBoxFont(juce::ComboBox&) override;
 
     void drawRackScrew(juce::Graphics& g, float centerX, float centerY, float radius) const;
 
@@ -142,7 +147,7 @@ public:
     static ThemePalette createPalette(Theme theme);
 
 private:
-    Theme theme_ { Theme::CyberNeon };
+    Theme theme_ { Theme::Studio84 };
     ThemePalette palette_;
 };
 
