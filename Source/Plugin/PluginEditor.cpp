@@ -263,6 +263,10 @@ void AnalogMasterEditor::paint(juce::Graphics& g) {
     for (int i = 0; i < 4; ++i) {
         paintModuleBay(g, i, moduleBayBounds(i), bayActive[i]);
     }
+
+    g.setColour(pal.headerSub.withAlpha(0.6f));
+    g.setFont(juce::FontOptions(10.0f, juce::Font::plain));
+    g.drawText("v1.1.0", juce::Rectangle<float>(bounds.getWidth() - 180.0f, bounds.getBottom() - 20.0f, 150.0f, 16.0f), juce::Justification::centredRight);
 }
 
 void AnalogMasterEditor::paintModuleBay(juce::Graphics& g, int index, juce::Rectangle<float> bay, bool active) const {
