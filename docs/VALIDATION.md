@@ -46,3 +46,14 @@ The final bundle passed strict code-signature verification after ad-hoc signing.
 The README image was recaptured from this running VST3.
 
 CI now includes the native editor/state checks on both macOS and Windows.
+
+The [v1.2.0 release workflow](https://github.com/alanmarcero/openMaster/actions/runs/40577536806)
+passed on macOS universal and Windows x64, including CTest, native editor/state
+checks and pluginval strictness 5. Both platform ZIPs were published. The Windows
+artifact separately passed ZIP integrity, x64 PE and VST3 version checks.
+
+An isolated OpenVST Manager test discovered the public catalog entry and v1.2.0,
+downloaded and verified the macOS package, installed its VST3, checked the bundle
+version and code signature, and opened the native editor. Managed receipts and
+uninstall also passed. The test used temporary folders and removed them afterward.
+The committed screenshot now comes from that published, Manager-installed bundle.
