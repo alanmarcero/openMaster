@@ -84,21 +84,21 @@ TEST_CASE("MasterProcessorCore cuts ultrasonic noise above 20kHz", "[master]") {
     REQUIRE(peakRemaining < 0.02f);
 }
 
-TEST_CASE("MasterProcessorCore bypass passes audio untouched", "[master]") {
+TEST_CASE("MasterProcessorCore bypass passes delayed audio untouched", "[master]") {
     const double fs = 48000.0;
     MasterProcessorCore processor;
     processor.prepare(fs);
     processor.setMasterBypassed(true);
 
-    const int numSamples = 64;
+    const int numSamples = processor.latencySamples() + 64;
     std::vector<float> left(numSamples, 0.75f);
     std::vector<float> right(numSamples, -0.42f);
 
     processor.processBlock(left.data(), right.data(), numSamples);
 
     for (int i = 0; i < numSamples; ++i) {
-        REQUIRE_THAT(left[i], WithinAbs(0.75f, 1e-6));
-        REQUIRE_THAT(right[i], WithinAbs(-0.42f, 1e-6));
+        REQUIRE_THAT(left[i], WithinAbs(i < processor.latencySamples() ? 0.f : 0.75f, 1e-6));
+        REQUIRE_THAT(right[i], WithinAbs(i < processor.latencySamples() ? 0.f : -0.42f, 1e-6));
     }
 }
 
@@ -107,7 +107,7 @@ TEST_CASE("MasterProcessorCore handles mono channels seamlessly", "[master]") {
     MasterProcessorCore processor;
     processor.prepare(fs);
 
-    const int numSamples = 128;
+    const int numSamples = processor.latencySamples() + 128;
     std::vector<float> mono(numSamples, 0.5f);
 
     // Pass nullptr for rightChannel to simulate mono track
@@ -130,7 +130,7 @@ TEST_CASE("MasterProcessorCore smooths gain changes without step clicks", "[mast
     processor.setStereoFieldBypassed(true);
     processor.setMasterGainDb(0.0f);
 
-    const int numSamples = 64;
+    const int numSamples = processor.latencySamples() + 2400;
     std::vector<float> left(numSamples, 1.0f);
     std::vector<float> right(numSamples, 1.0f);
 
@@ -146,7 +146,7 @@ TEST_CASE("MasterProcessorCore smooths gain changes without step clicks", "[mast
 
     // First sample of the ramp should start near 1.0, not instantaneously jump to 2.0
     REQUIRE(leftRamp[0] < 1.15f);
-    // Last sample should reach ~2.0
+    // The 5 ms smoother settles over time, independently of the host block length.
     REQUIRE_THAT(leftRamp[numSamples - 1], WithinAbs(2.0f, 0.05f));
 }
 
@@ -158,12 +158,12 @@ TEST_CASE("MasterProcessorCore tracks peak transients with exponential decay", "
     processor.setHighCutBypassed(true);
 
     // Impulse transient
-    std::vector<float> impulse(64, 0.0f);
+    std::vector<float> impulse(processor.latencySamples() + 64, 0.0f);
     impulse[0] = 1.0f;
-    std::vector<float> rightImpulse(64, 0.0f);
+    std::vector<float> rightImpulse(processor.latencySamples() + 64, 0.0f);
     rightImpulse[0] = 0.8f;
 
-    processor.processBlock(impulse.data(), rightImpulse.data(), 64);
+    processor.processBlock(impulse.data(), rightImpulse.data(), static_cast<int>(impulse.size()));
 
     auto levels = processor.meterLevels();
     REQUIRE(levels.peakL > 0.9f);
@@ -226,14 +226,14 @@ TEST_CASE("MasterProcessorCore detects overload clip when signal reaches 0 dBFS"
     processor.setStereoFieldBypassed(true);
 
     // Signal at 0.5 (safe, no clip)
-    std::vector<float> safeBlock(128, 0.5f);
-    processor.processBlock(safeBlock.data(), safeBlock.data(), 128);
+    std::vector<float> safeBlock(processor.latencySamples() + 128, 0.5f);
+    processor.processBlock(safeBlock.data(), safeBlock.data(), processor.latencySamples() + 128);
     auto safeLevels = processor.meterLevels();
     REQUIRE_FALSE(safeLevels.clipL);
 
     // Overload pulse at 1.05 (> 0 dBFS clip)
-    std::vector<float> clipBlock(128, 1.05f);
-    processor.processBlock(clipBlock.data(), clipBlock.data(), 128);
+    std::vector<float> clipBlock(processor.latencySamples() + 128, 1.05f);
+    processor.processBlock(clipBlock.data(), clipBlock.data(), processor.latencySamples() + 128);
     auto clipLevels = processor.meterLevels();
     REQUIRE(clipLevels.clipL);
     REQUIRE(clipLevels.clipR);
@@ -323,7 +323,10 @@ TEST_CASE("MasterProcessorCore tracks stereo phase correlation accurately", "[ma
         left[i] = s;
         right[i] = s;
     }
+    const auto inPhase = left;
     for (int b = 0; b < 8; ++b) {
+        left = inPhase;
+        right = inPhase;
         processor.processBlock(left.data(), right.data(), numSamples);
     }
     REQUIRE(processor.meterLevels().correlation > 0.95f);
@@ -334,7 +337,11 @@ TEST_CASE("MasterProcessorCore tracks stereo phase correlation accurately", "[ma
         left[i] = s;
         right[i] = -s;
     }
+    const auto outOfPhase = right;
     for (int b = 0; b < 12; ++b) {
+        // Supply fresh input: reusing rendered buffers recirculates delayed old-phase audio.
+        left = inPhase;
+        right = outOfPhase;
         processor.processBlock(left.data(), right.data(), numSamples);
     }
     REQUIRE(processor.meterLevels().correlation < -0.90f);
@@ -371,7 +378,7 @@ TEST_CASE("MasterProcessorCore crossfades master bypass without a step click", "
 
     // After the fade-out, the bypassed samples are dry.
     for (int i = 5 * blockSize; i < 8 * blockSize; ++i) {
-        REQUIRE(left[i] == dry[i]);
+        REQUIRE(left[i] == dry[static_cast<size_t>(i - processor.latencySamples())]);
     }
 }
 
@@ -408,10 +415,10 @@ TEST_CASE("MasterProcessorCore holds a clip until the meter reads it", "[master]
     processor.setHighCutBypassed(true);
     processor.setStereoFieldBypassed(true);
 
-    std::vector<float> clipBlock(128, 1.05f);
-    processor.processBlock(clipBlock.data(), clipBlock.data(), 128);
-    std::vector<float> safeBlock(128, 0.5f);
-    processor.processBlock(safeBlock.data(), safeBlock.data(), 128);
+    std::vector<float> clipBlock(processor.latencySamples() + 128, 1.05f);
+    processor.processBlock(clipBlock.data(), clipBlock.data(), processor.latencySamples() + 128);
+    std::vector<float> safeBlock(processor.latencySamples() + 128, 0.5f);
+    processor.processBlock(safeBlock.data(), safeBlock.data(), processor.latencySamples() + 128);
 
     const auto firstRead = processor.takeMeterLevels();
     const auto secondRead = processor.takeMeterLevels();

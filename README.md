@@ -1,107 +1,86 @@
 # openMaster
 
-![openMaster Banner](assets/banner.jpg)
+A mastering processor with filtering, tone EQ, stereo shaping, compression, dynamic EQ, saturation, clipping, limiting, and loudness metering.
 
-> **Built with one prompt with Gemini 3.8 Flash:**
-> *"let's create a VST plugin. a mastering plugin that has three capabilities: eq high cut, eq low cut, and low-end stereo field -- the stereo field should go from mono to stereo enhance on a dial and should have a knob selector for the frequency where the stereo field kicks in. for the lown-end stereo, it should basically only work with frequences below the knob selector and apply the stereo widening or narrowing to everything below that selected frequency. it's a simple interface, inspired by classic analog gear. generate graphics for the package as needed. create a new repo in github.com/alanmarcero, make it public. give it build pipelines similar to the winamp plugin i also have in github.com/alanmarcero for the low cut and high cut eq, it has a HARD slope cutoff for low end and highend. like -64db hard, as hard as you can really. but the slope it can also be configurable. the idea is we cut everything above 20khz and below 20hz but that should be loosely configurable with a dial or switch. make sure the ui is uniform and models classic analog gear.*
-> 
-> *dont ask questions. don't clarify. don't stop. do not pass go, just build it and deploy it."*
+[Download VST3](https://github.com/alanmarcero/openMaster/releases/latest) · [Install with OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest)
 
----
+## 1980s Studio Rack Interface
 
-**openMaster** is a professional mastering VST3 audio plugin designed for surgical low/high-frequency boundary control and low-end stereo field sculpting, wrapped in a uniform mastering interface.
+The entire editor follows the stereo LED meters: a generated charcoal aluminum faceplate, smoked display windows, green seven-segment value readouts, segmented knob scales, dark fluted knobs, and rectangular switches with green or amber status lamps. The numeric fields remain editable. Labels, controls, and meters render live; the background is embedded in the plugin.
 
----
+![Actual openMaster Studio 84 editor](assets/native-ui.png)
 
-## Cyberpunk UI Redesign & 5 Selectable Cyber Themes
+Captured from the running VST3. See [screenshot provenance](docs/SCREENSHOTS.md).
 
-The interface has been completely redesigned with a **Cyberpunk Mastering HUD** aesthetic featuring an embedded custom Alan Marcero emblem, carbon-titanium PCB circuit-trace chassis backdrop (`assets/cyber_chassis_backdrop.jpg`), dual-color neon LED rotary value arcs, illuminated tactile pad switches, and holographic OLED ballistic VU meters.
+The **FACEPLATE** selector offers five illumination palettes over the same rack hardware:
 
-Use the real-time **THEME** selector in the top header to switch between **5 Cyberpunk Themes**:
-1. **Cyber Neon (Default):** Electric cyan (`#00F0FF`) and neon magenta (`#FF2A85`) LED arcs over deep carbon-obsidian chassis.
-2. **Chrome Deck:** Brushed liquid-chrome titanium with ice-cyan and solar-amber telemetry accents.
-3. **Acid Bio-Grid:** Matrix phosphor green (`#29FF70`) and acid lime (`#D4FF28`) bio-circuit HUD.
-4. **Deep Net Ice:** Cryogenic ultraviolet (`#9D7AFF`) and ice-blue (`#5CE1FF`) neural grid.
-5. **Solar Overdrive:** High-voltage molten amber (`#FF9D1C`) and crimson plasma (`#FF2A55`) overdrive aesthetic.
+| Theme | Display / status colors |
+| --- | --- |
+| Studio 84 (default) | Green / amber |
+| Silver | Soft white / amber |
+| Phosphor | Green / pale lime |
+| Ice | Ice blue / amber |
+| Amber | Amber / warm red |
 
-### Cyber Neon Mastering Console (New Default UI)
-![Cyberpunk Mastering UI](assets/gui_cyberpunk.jpg)
-
-### Classic Heritage Themes Gallery
-![Classic Charcoal UI](assets/gui_master.png)
-
-### 2. Studio Silverface Edition
-*1970s brushed silver aluminum faceplate, dark navy silkscreen, precision fluted silver knobs, electric sapphire-blue jewel lamp, and clean white studio VU meters.*
-![Silverface UI](assets/gui_silverface.jpg)
-
-### 3. British Console Heritage Edition
-*Deep British racing green enamel faceplate, antique cream & gold typography, solid brass knurled knobs, glowing ruby-red jewel lamp, and ivory VU meters.*
-![British Green UI](assets/gui_british_green.jpg)
-
-### 4. Midnight Slate Mastering Edition
-*Anodized midnight navy brushed aluminum, laser cyan silkscreen, precision dark gunmetal slate dials, electric cyan pilot lamp, and fluorescent ice-blue backlit VU meters.*
-![Midnight Slate UI](assets/gui_midnight_slate.jpg)
-
-### Analog Hardware Detailing
-![Analog Hardware Detail](assets/screenshot_hardware_detail.jpg)
+Meter level colors remain green, amber, and red in every theme. Theme indices are unchanged, so existing sessions retain their selected slot. The [artwork prompt](assets/ANALOG-CYBER.md) documents the generated faceplate.
 
 ---
 
-## Capabilities
+## Mastering chain
 
-### 1. Ultra-Steep Low Cut EQ
-- **Frequency Dial:** Range from 10 Hz to 200 Hz (nominal 20 Hz default, silk-screened at `10`, `20`, `40`, `80`, `200` Hz).
-- **Hard Slope Cutoff:** Configurable slopes:
-  - `12 dB/oct` (2-pole Butterworth)
-  - `24 dB/oct` (4-pole Butterworth)
-  - `48 dB/oct` (8-pole Butterworth)
-  - `72 dB/oct` (12-pole cascaded Butterworth — ultra-hard slope)
-  - `96 dB/oct` (16-pole cascaded Butterworth — extreme brickwall)
-- Eliminates sub-audible DC rumble and frees up precious mastering headroom with zero passband ripple.
-- **Dedicated IN Bypass Switch:** Toggle switch with glowing jewel pilot lamp to A/B sub-bass cleanup instantly.
+The six cards expose the everyday controls. Click a card heading for its detailed
+settings. Dynamics and Color each have a selector in the detail strip. Dynamic EQ
+has a band selector, so all three bands share the same controls.
 
-### 2. Low-End Stereo Field Shaper
-- **Continuously Variable Stereo Field Dial:**
-  - `0%` = **Pure Mono** (completely eliminates out-of-phase low-end rumble for punchy vinyl/club-ready bass).
-  - `100%` = **Original Stereo** (transparent pass-through).
-  - `200%` = **Stereo Enhance** (widens and blooms the low-end stereo image).
-- **Crossover Frequency Selector Knob:** Configurable cutoff (40 Hz to 500 Hz, silk-screened at `40`, `80`, `120`, `250`, `500` Hz). The stereo field processing affects **only** audio frequencies below this selector, leaving everything above the crossover frequency in pristine, untouched stereo.
-- **Linkwitz-Riley 4th-Order (LR4) Phase-Matched Crossover:** Flat magnitude sum across the entire spectrum.
-- **Dedicated IN Bypass Switch:** Independent bypass toggle with glowing jewel pilot lamp for instant stereo imaging comparison.
-- **Solo Low Band Audition Switch:** Isolates and audits exclusively the processed low-end frequencies.
+| Section | Main controls | Detail controls |
+| --- | --- | --- |
+| Filters | Low cut, high cut; individual switches | 12–96 dB/oct slopes |
+| Tone | Low and high shelf gain | Tilt, shelf frequencies |
+| Stereo | Low-band width, crossover | Low-band audition |
+| Dynamics | Compressor threshold, dynamic EQ amount | Ratio, attack, release, knee, mix, makeup, detector HP; three EQ bands with frequency, Q, threshold, max cut, timing and audition |
+| Color | Saturation drive, clipper drive | Tape/Transformer curves, mix, output and gain compensation; soft/hard clip, ceiling and mix |
+| Output | Limiter drive, ceiling | Release and pre-limit master trim |
 
-### 3. Ultra-Steep High Cut EQ
-- **Frequency Dial:** Range from 8 kHz to 24 kHz (nominal 20 kHz default, silk-screened at `8`, `12`, `15`, `20`, `24` kHz).
-- **Hard Slope Cutoff:** Configurable slopes:
-  - `12 dB/oct`, `24 dB/oct`, `48 dB/oct`, `72 dB/oct (Hard)`, `96 dB/oct (Brickwall)`.
-- Removes harsh ultrasonic frequencies, aliasing, and digital sheen above the human audible spectrum.
-- **Dedicated IN Bypass Switch:** Toggle switch with glowing jewel pilot lamp to audition air contouring.
+Signal order: low cut → low-band stereo → high cut → tone → compressor →
+dynamic EQ → saturation → master trim → clipper → limiter.
 
-### 4. Master Output & Analog Metering
-- **Master Trim:** Continuous ±18 dB analog output gain.
-- **Twin VU Meters:** Left and right VU needles with IEC 60268-17 ballistics (99% of a step in 300 ms). Each needle averages the rectified signal and reads a sine's RMS against the **VU Reference** (0 VU = -8 to -20 dBFS, default -14 dBFS). Each meter also shows the held sample peak in dBFS and a CLIP lamp.
-- **Phase Correlation Bar:** -1 (out of phase) to +1 (mono). It uses the same time constant as the VU, whatever the host buffer size.
-- **Global Power / Master Bypass Switch.**
+New stages default **off**. Existing parameter IDs, order, ranges and defaults
+remain intact. Old sessions retain their filtering/stereo settings and leave new
+stages off. Oversampling and lookahead add a fixed latency, reported to the host;
+stage switches and global/host bypass preserve that latency.
 
-### 5. Multi-Look Vintage Faceplate Switcher (4 Selectable Aesthetics)
-- Switch on-the-fly via the header **`LOOK`** dropdown or automate in your DAW:
-  - **Classic Charcoal:** Deep brushed charcoal faceplate, spun brass knobs, amber jewel lamps, warm parchment VU meters.
-  - **Silverface Edition:** 1970s studio brushed silver aluminum, dark navy typography, silver fluted knobs, sapphire blue jewel lamp, clean studio white VU meters.
-  - **British Console Heritage:** Vintage British racing green enamel faceplate, antique cream & gold typography, solid brass knurled knobs, ruby red jewel lamp, antique ivory VU meters.
-  - **Midnight Slate Mastering:** Precision mastering unit, deep midnight navy brushed aluminum, laser cyan silkscreen, dark gunmetal dials, ice-blue backlit VU meters.
-- Persisted automatically in DAW project sessions and user presets.
+Saturation and clipping use fixed 8× oversampling. The limiter uses stereo-linked
+lookahead and reconstructed-peak detection. The saturation character names describe
+waveshaping flavors, not physical emulations of a particular tape machine or transformer.
 
----
+## Meters and comparison
 
-## Classic Analog Aesthetic
+- Stereo 30-segment VU bars, held sample peaks in dBFS, clip lamps, phase correlation.
+- Integrated and 3-second short-term LUFS; held reconstructed true peak in dBTP.
+- Separate compressor, dynamic EQ, clipper and limiter gain-reduction displays.
+- **RESET METERS** starts a new loudness/peak measurement without clearing the audio chain.
+- **MATCH BYPASS** measures aligned wet/dry short-term loudness. After 3 seconds,
+  it smoothly attenuates the louder branch, up to 12 dB. Use **POWER** to compare.
+  Matching affects audible output and therefore exports; turn it off for final delivery.
+  During silence, the last valid comparison is held. This is an audition aid, not
+  automatic target-LUFS mastering.
 
-Inspired by iconic analog mastering gear:
-- Brushed aluminum and vintage enamel faceplates with subtle horizontal hairline texture.
-- Machined brass, silver, and gunmetal knurled rotary knobs with pointer notches and radial index markings.
-- Glowing jewel LED indicators with illuminated halo effects (Amber, Sapphire Blue, Ruby Red, and Electric Cyan).
-- 4 heavy-duty corner rack screws and silk-screened typography.
+VU uses sine-RMS calibration and a 99%-in-300-ms response. Its reference defaults to
+−14 dBFS and can be set from −8 to −20 dBFS. Loudness measures actual output,
+including bypass and comparison trim. Integrated loudness uses BS.1770 weighting
+and gates with a bounded 0.001 LU histogram; boundary gating is approximate.
+
+Algorithm sources, timing, and limitations: [DSP research notes](docs/MASTERING_DSP.md)
+and [stage implementation notes](docs/MASTERING_STAGES.md). These tests are engineering
+validation, not a claim of broadcast-meter certification.
 
 ---
+
+## Install
+
+Download and open [OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest), refresh the catalog, choose **openMaster**, and install VST3. Rescan plugins in your DAW.
+
+Release packages contain a universal macOS VST3 (Apple Silicon and Intel, macOS 11+) or a Windows x64 VST3. For manual installation, extract the release ZIP and copy `openMaster.vst3` to `~/Library/Audio/Plug-Ins/VST3` on macOS or your DAW's VST3 folder on Windows (the standard system path is `C:\Program Files\Common Files\VST3`). Close the DAW before replacing a bundle, then reopen and rescan. macOS bundles are ad-hoc signed and are not notarized. Audio Unit is not included.
 
 ## Architecture & Code Structure
 
@@ -113,11 +92,9 @@ openMaster/
 ├── assets/
 │   ├── banner.jpg                # Photorealistic 16:9 hero banner
 │   ├── icon.jpg                  # High-resolution plugin icon
-│   ├── gui_master.png            # Classic Charcoal UI screenshot
-│   ├── gui_silverface.jpg        # Studio Silverface Edition screenshot
-│   ├── gui_british_green.jpg     # British Console Heritage screenshot
-│   ├── gui_midnight_slate.jpg    # Midnight Slate Mastering screenshot
-│   └── screenshot_hardware_detail.jpg # Hardware controls detail shot
+│   ├── analog-cyber-faceplate.png # Embedded charcoal rack texture
+│   ├── native-ui.png             # Native Studio 84 editor capture
+│   └── ANALOG-CYBER.md           # Image-generation prompt
 ├── Source/
 │   ├── Core/                     # Pure C++20 DSP engine (zero GUI dependencies)
 │   │   ├── BiquadFilter.h/.cpp
@@ -129,7 +106,7 @@ openMaster/
 │   └── Plugin/                   # JUCE 8 VST3 Plugin implementation
 │       ├── Parameters.h/.cpp     # APVTS parameter layout
 │       ├── AnalogLookAndFeel.h/.cpp # Custom vintage analog LookAndFeel
-│       ├── VintageMeter.h/.cpp   # Vintage twin VU ballistic meters
+│       ├── VintageMeter.h/.cpp   # Segmented stereo LED meters and digital peak readouts
 │       ├── PluginProcessor.h/.cpp# JUCE AudioProcessor
 │       └── PluginEditor.h/.cpp   # JUCE AudioProcessorEditor
 ├── Tests/                        # Catch2 unit test suite
@@ -147,21 +124,37 @@ openMaster/
 ## Building Locally
 
 ### Prerequisites
+
 - CMake 3.22 or newer
 - C++20 compatible compiler (Clang 14+, GCC 12+, MSVC 2022+)
+- Xcode command-line tools on macOS or Visual Studio C++ build tools on Windows
+- Network access for CMake to fetch JUCE 8.0.9 and Catch2 3.9.1
 
 ### Build & Run Tests
+
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
-ctest --test-dir build --output-on-failure
+ctest --test-dir build -C Release --output-on-failure
 ```
+
+For a universal macOS build add `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0`; on Windows configure with `-A x64`. The VST3 is written under `build/openMaster_artefacts/Release/VST3/`.
+
+Optional native editor/state checks (requires a desktop session):
+```bash
+cmake -S . -B build -DAMS_BUILD_HOST_CHECKS=ON
+cmake --build build --config Release --parallel
+ctest --test-dir build -C Release --output-on-failure
+# On a single-configuration build, optionally capture all detail views and themes:
+./build/open_master_host_checks /tmp/openmaster-previews
+```
+
 
 ---
 
 ## Continuous Integration & Release Pipelines
 
-Automated multi-platform CI pipelines run on every commit and pull request:
+Automated multi-platform CI runs on code pushes to `main`, pull requests, release tags, and manual dispatch:
 - **macOS (`macos-14`):** Universal binary (`arm64` Apple Silicon + `x86_64` Intel), ad-hoc codesigning, automated unit tests, and validation via `pluginval` at strictness level 5.
 - **Windows (`windows-latest`):** Native MSVC build, automated unit tests, validation via `pluginval`, and zipped distribution packages.
 
@@ -169,4 +162,4 @@ Automated multi-platform CI pipelines run on every commit and pull request:
 
 ## License
 
-MIT License. Copyright (c) 2026 Alan Marcero.
+Project code is MIT licensed. JUCE and bundled dependencies retain their own license terms; release ZIPs include third-party notices. Copyright (c) 2026 Alan Marcero.

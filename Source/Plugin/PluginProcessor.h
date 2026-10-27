@@ -3,6 +3,8 @@
 #include "MasterProcessorCore.h"
 #include "Parameters.h"
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <map>
+#include <string>
 
 class AnalogMasterProcessor final : public juce::AudioProcessor {
 public:
@@ -11,8 +13,12 @@ public:
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
+    void reset() override { core_.reset(); }
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override;
+
+    void processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override;
+    void resetMeters() noexcept { core_.requestMeterReset(); }
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
@@ -21,7 +27,7 @@ public:
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    double getTailLengthSeconds() const override { return 0.1; }
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -40,7 +46,9 @@ public:
 
 private:
     void syncParameters();
+    void processAudio(juce::AudioBuffer<float>& buffer, bool hostBypassed);
 
+    std::map<std::string, std::atomic<float>*, std::less<>> rawParameters_;
     analog_master::core::MasterProcessorCore core_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnalogMasterProcessor)
