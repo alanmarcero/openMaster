@@ -29,7 +29,7 @@ double clean(double x) noexcept {
 }
 struct Ramp {
     double value = 0, target = 0, step = 0;
-    int remaining = 0, duration = 480;
+    int remaining = 0, duration = 480, hold = 0;
     void prepare(double sr, double initial) noexcept {
         duration = std::max(1, static_cast<int>(.01 * sr));
         snap(initial);
@@ -37,7 +37,7 @@ struct Ramp {
     void snap(double v) noexcept {
         value = target = v;
         step = 0;
-        remaining = 0;
+        remaining = hold = 0;
     }
     void set(double v) noexcept {
         if (v != target) {
@@ -47,6 +47,10 @@ struct Ramp {
         }
     }
     double next() noexcept {
+        if (hold > 0) {
+            --hold;
+            return value;
+        }
         if (remaining > 0) {
             value += step;
             if (--remaining == 0)
@@ -54,6 +58,7 @@ struct Ramp {
         }
         return value;
     }
+    bool idle() const noexcept { return value == 0 && target == 0; }
 };
 struct Stereo {
     double l = 0, r = 0;
@@ -147,11 +152,23 @@ struct SmoothFilter {
         return filter.process(x);
     }
 };
+// Partial sums allow SIMD without fast-math.
+double dot(const std::array<double, 64> &c, const double *x) noexcept {
+    std::array<double, 16> sum{};
+    for (size_t j = 0; j < 64; j += 16)
+        for (size_t k = 0; k < 16; ++k)
+            sum[k] += c[j + k] * x[j + k];
+    for (size_t k = 8; k > 0; k /= 2)
+        for (size_t i = 0; i < k; ++i)
+            sum[i] += sum[i + k];
+    return sum[0];
+}
+// Taps are oldest first in doubled rings, so dot() reads contiguous memory.
 struct Halfband {
     std::array<double, 64> odd{};
-    std::array<double, 130> upHistory{};
-    std::array<double, 258> downHistory{};
-    int upPos = 0, downPos = 0;
+    std::array<double, 128> upHistory{}, downOdd{};
+    std::array<double, 32> downEven{};
+    size_t upPos = 0, downPos = 0;
     void prepare() noexcept {
         double sum = 0;
         for (int j = 0; j < 64; ++j) {
@@ -159,8 +176,8 @@ struct Halfband {
             const double d = k - 64;
             const double window = .35875 - .48829 * std::cos(2 * pi * k / 128) +
                                   .14128 * std::cos(4 * pi * k / 128) - .01168 * std::cos(6 * pi * k / 128);
-            odd[static_cast<size_t>(j)] = std::sin(pi * .5 * d) / (pi * d) * window;
-            sum += odd[static_cast<size_t>(j)];
+            odd[static_cast<size_t>(63 - j)] = std::sin(pi * .5 * d) / (pi * d) * window;
+            sum += odd[static_cast<size_t>(63 - j)];
         }
         for (auto &c : odd)
             c *= .5 / sum;
@@ -168,32 +185,23 @@ struct Halfband {
     }
     void reset() noexcept {
         upHistory = {};
-        downHistory = {};
+        downOdd = {};
+        downEven = {};
         upPos = downPos = 0;
     }
     std::array<double, 2> up(double x) noexcept {
-        upHistory[static_cast<size_t>(upPos)] = upHistory[static_cast<size_t>(upPos + 65)] = x;
-        const double even = upHistory[static_cast<size_t>(upPos + 65 - 32)];
-        double oddValue = 0;
-        for (int j = 0; j < 64; ++j)
-            oddValue += odd[static_cast<size_t>(j)] * upHistory[static_cast<size_t>(upPos + 65 - j)];
-        if (++upPos == 65)
-            upPos = 0;
+        upHistory[upPos] = upHistory[upPos + 64] = x;
+        const double even = upHistory[upPos + 32];
+        const double oddValue = dot(odd, &upHistory[upPos + 1]);
+        upPos = (upPos + 1) % 64;
         return {even, 2 * oddValue};
     }
-    void push(double x) noexcept {
-        downHistory[static_cast<size_t>(downPos)] = downHistory[static_cast<size_t>(downPos + 129)] = x;
-    }
     double down(double even, double oddValue) noexcept {
-        push(even);
-        double y = .5 * downHistory[static_cast<size_t>(downPos + 129 - 64)];
-        for (int j = 0; j < 64; ++j)
-            y += odd[static_cast<size_t>(j)] * downHistory[static_cast<size_t>(downPos + 128 - 2 * j)];
-        if (++downPos == 129)
-            downPos = 0;
-        push(oddValue);
-        if (++downPos == 129)
-            downPos = 0;
+        auto &delayed = downEven[downPos % 32];
+        const double y = .5 * delayed + dot(odd, &downOdd[downPos]);
+        delayed = even;
+        downOdd[downPos] = downOdd[downPos + 64] = oddValue;
+        downPos = (downPos + 1) % 64;
         return y;
     }
 };
@@ -276,9 +284,10 @@ struct NyquistGuard {
         return {out[0], out[1]};
     }
 };
+// Float doubles the SIMD width, with error far below the 0.5 dB limiter margin.
 struct PeakBank {
-    std::array<std::array<double, peakPhases>, peakTaps> coefficients{};
-    std::array<double, peakTaps * 2> left{}, right{};
+    std::array<std::array<float, peakPhases>, peakTaps> coefficients{};
+    std::array<float, peakTaps * 2> left{}, right{};
     int position = 0;
     void prepare() noexcept {
         for (int p = 0; p < peakPhases; ++p) {
@@ -290,11 +299,11 @@ struct PeakBank {
                         ? .42 + .5 * std::cos(2 * pi * d / peakTaps) + .08 * std::cos(4 * pi * d / peakTaps)
                         : 0;
                 const double h = std::abs(d) < 1e-12 ? 1 : std::sin(pi * d) / (pi * d);
-                coefficients[static_cast<size_t>(j)][static_cast<size_t>(p)] = h * window;
+                coefficients[static_cast<size_t>(j)][static_cast<size_t>(p)] = static_cast<float>(h * window);
                 sum += h * window;
             }
             for (auto &row : coefficients)
-                row[static_cast<size_t>(p)] /= sum;
+                row[static_cast<size_t>(p)] = static_cast<float>(row[static_cast<size_t>(p)] / sum);
         }
         reset();
     }
@@ -304,12 +313,14 @@ struct PeakBank {
         position = 0;
     }
     double process(double l, double r) noexcept {
-        left[static_cast<size_t>(position)] = left[static_cast<size_t>(position + peakTaps)] = l;
-        right[static_cast<size_t>(position)] = right[static_cast<size_t>(position + peakTaps)] = r;
+        left[static_cast<size_t>(position)] = left[static_cast<size_t>(position + peakTaps)] =
+            static_cast<float>(l);
+        right[static_cast<size_t>(position)] = right[static_cast<size_t>(position + peakTaps)] =
+            static_cast<float>(r);
         double peak = std::max(std::abs(l), std::abs(r));
         // Independent phase accumulators permit SIMD without reassociating FIR
         // sums or enabling unsafe floating-point compiler flags.
-        std::array<double, peakPhases> yl{}, yr{};
+        std::array<float, peakPhases> yl{}, yr{};
         for (int j = 0; j < peakTaps; ++j) {
             const auto k = static_cast<size_t>(position + peakTaps - j);
             const auto &c = coefficients[static_cast<size_t>(j)];
@@ -318,8 +329,10 @@ struct PeakBank {
                 yr[p] += c[p] * right[k];
             }
         }
+        // A nested std::max here makes Clang spill the accumulators (4x slower).
         for (size_t p = 0; p < peakPhases; ++p)
-            peak = std::max({peak, std::abs(yl[p]), std::abs(yr[p])});
+            peak = std::max(
+                {peak, static_cast<double>(std::abs(yl[p])), static_cast<double>(std::abs(yr[p]))});
         if (++position == peakTaps)
             position = 0;
         return peak;
@@ -356,6 +369,8 @@ struct ToneStage::Impl {
             f.reset();
     }
     void process(float &l, float &r) noexcept {
+        if (enabled.idle())
+            return;
         const Stereo dry{l, r};
         Stereo wet = dry;
         for (auto &f : filters)
@@ -400,6 +415,8 @@ struct CompressorStage::Impl {
             p->snap(p->target);
     }
     void process(float &l, float &r) noexcept {
+        if (enabled.idle())
+            return;
         const Stereo dry{l, r};
         const double hz = sidechain.next(), a = std::exp(-2 * pi * hz / sr);
         std::array<double, 2> x{l, r};
@@ -477,6 +494,8 @@ struct DynamicEqStage::Impl {
         }
     }
     void process(float &l, float &r) noexcept {
+        if (enabled.idle())
+            return;
         const Stereo dry{l, r};
         Stereo wet = dry, solo{};
         const double strength = amount.next();
@@ -539,6 +558,8 @@ struct SaturationStage::Impl {
     }
     void process(float &l, float &r) noexcept {
         const auto dry = dryDelay.process({l, r});
+        if (enabled.idle())
+            return output(dry, l, r);
         const double d = amp(drive.next()), ch = character.next(),
                      normalization = std::pow(d, -autoGain.next()), out = amp(outputGain.next());
         auto shape = [=](double x) {
@@ -582,8 +603,10 @@ struct ClipperStage::Impl {
     }
     void process(float &l, float &r) noexcept {
         const auto dry = dryDelay.process({l, r});
+        if (enabled.idle())
+            return output(dry, l, r);
         const double d = amp(drive.next()), c = amp(ceiling.next()), soft = shapeAmount.next();
-        double reduction = 0;
+        double ratio = 1;
         auto shape = [&](double x) {
             const double driven = x * d, a = std::abs(driven), hard = std::min(a, c), k = .8 * c, e = 1.2 * c;
             double smooth = a;
@@ -593,11 +616,11 @@ struct ClipperStage::Impl {
             }
             const double y = hard + soft * (smooth - hard);
             if (a > 1e-12)
-                reduction = std::max(reduction, -decibels(std::max(y, 1e-12) / a));
+                ratio = std::min(ratio, std::max(y, 1e-12) / a);
             return std::copysign(y, driven);
         };
         const Stereo wet{oversampler.process(l, 0, shape), oversampler.process(r, 1, shape)};
-        reductionDb = std::max(reduction, reductionDb * std::exp(-1 / (.1 * sr)));
+        reductionDb = std::max(-decibels(ratio), reductionDb * std::exp(-1 / (.1 * sr)));
         output(mix(dry, wet, enabled.next() * mixAmount.next()), l, r);
     }
     float reduction() const noexcept {
@@ -659,6 +682,8 @@ struct LimiterStage::Impl {
     }
     void process(float &l, float &r) noexcept {
         const auto dry = dryDelay.process({l, r});
+        if (enabled.idle())
+            return output(dry, l, r);
         const double d = amp(drive.next());
         const Stereo driven = guard.process({l * d, r * d});
         const auto delayed = wetDelay.process(driven);
@@ -708,8 +733,16 @@ struct LimiterStage::Impl {
         if (settings_ == s)                                                                                  \
             return;                                                                                          \
         settings_ = s;                                                                                       \
-        if (impl_)                                                                                           \
-            impl_->set(s);                                                                                   \
+        if (!impl_)                                                                                          \
+            return;                                                                                          \
+        const bool waking = s.enabled && impl_->enabled.idle();                                              \
+        impl_->set(s);                                                                                       \
+        if (waking) {                                                                                        \
+            impl_->reset();                                                                                  \
+            impl_->enabled.snap(0);                                                                          \
+            impl_->enabled.set(1);                                                                           \
+            impl_->enabled.hold = 2 * impl_->latency();                                                      \
+        }                                                                                                    \
     }                                                                                                        \
     void Name::process(float &l, float &r) noexcept {                                                        \
         if (impl_)                                                                                           \

@@ -217,6 +217,7 @@ void AnalogMasterEditor::applyTheme() {
     }
     resetButton_.setColour(juce::TextButton::buttonColourId, p.sectionHeaderPlate);
     resetButton_.setColour(juce::TextButton::textColourOffId, p.labelText);
+    background_ = {};
     repaint();
 }
 void AnalogMasterEditor::timerCallback() {
@@ -269,14 +270,24 @@ void AnalogMasterEditor::resized() {
 }
 void AnalogMasterEditor::paint(juce::Graphics &g) {
     const auto &p = lookAndFeel_.getPalette();
-    g.fillAll(p.panelGradBottom);
-    if (backdrop_.isValid()) {
-        g.setOpacity(.68f);
-        g.drawImage(backdrop_, getLocalBounds().toFloat());
-        g.setOpacity(1);
+    // Cache the faceplate per theme and scale. Resampling it on each repaint is slow.
+    const float scale = g.getInternalContext().getPhysicalPixelScaleFactor();
+    if (!background_.isValid() || !juce::exactlyEqual(backgroundScale_, scale)) {
+        backgroundScale_ = scale;
+        background_ = juce::Image(juce::Image::RGB, juce::roundToInt(static_cast<float>(getWidth()) * scale),
+                                  juce::roundToInt(static_cast<float>(getHeight()) * scale), false);
+        juce::Graphics layer(background_);
+        layer.addTransform(juce::AffineTransform::scale(scale));
+        layer.fillAll(p.panelGradBottom);
+        if (backdrop_.isValid()) {
+            layer.setOpacity(.68f);
+            layer.drawImage(backdrop_, getLocalBounds().toFloat());
+            layer.setOpacity(1);
+        }
+        layer.setColour(juce::Colours::black.withAlpha(.3f));
+        layer.fillRect(getLocalBounds());
     }
-    g.setColour(juce::Colours::black.withAlpha(.3f));
-    g.fillRect(getLocalBounds());
+    g.drawImage(background_, getLocalBounds().toFloat());
     if (logo_.isValid())
         g.drawImageWithin(logo_, 20, 17, 38, 38, juce::RectanglePlacement::centred);
     g.setColour(p.headerTitle);

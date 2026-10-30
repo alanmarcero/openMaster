@@ -5,7 +5,8 @@
 namespace analog_master::core {
 // Audio-thread objects. prepare() owns all allocation; the other methods are bounded
 // and allocation-free. Enable and parameter changes ramp over 10 ms. Delayed stages
-// keep their prepared latency even when disabled.
+// keep their prepared latency even when disabled. Disabled stages skip their DSP.
+// Re-enabling resets a stage and fades it in after its filters refill.
 #define OPEN_MASTER_STAGE_DECL(Name, Settings)                                                               \
     class Name {                                                                                             \
     public:                                                                                                  \

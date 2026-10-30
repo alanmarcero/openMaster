@@ -37,7 +37,8 @@ private:
     juce::Rectangle<int> cardBounds(int index) const;
     AnalogMasterProcessor &processor_;
     analog_master::ui::AnalogLookAndFeel lookAndFeel_;
-    juce::Image backdrop_, logo_;
+    juce::Image backdrop_, logo_, background_;
+    float backgroundScale_ = 0;
     std::vector<std::unique_ptr<Control>> primary_, switches_, details_, header_;
     std::array<juce::TextButton, 6> sections_;
     juce::ComboBox detailMode_, dynamicBand_;

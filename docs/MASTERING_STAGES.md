@@ -6,6 +6,8 @@ use 10 ms, sample-counted ramps, so callback size does not change automation tim
 `setSettings` ignores an identical snapshot. `prepare` allocates; `process`,
 `setSettings`, and `reset` neither allocate nor lock. Settings belong to the audio
 thread. `reset` clears histories and envelopes and snaps ramps to their targets.
+A stage that is fully off skips its DSP and passes its delayed dry signal. Enabling
+it resets the stage and delays the fade-in by twice its latency, so its filters refill first.
 
 All new stages default off. Call `prepare(sampleRate)` before processing. Settings
 may also be supplied before preparation. Mono callers pass the same value as left
